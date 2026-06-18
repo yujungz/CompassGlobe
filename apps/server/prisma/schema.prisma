@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户表
+model User {
+  id            String   @id @default(uuid())
+  phone         String?  @unique
+  email         String?  @unique
+  password      String?
+  nickname      String?
+  avatar        String?
+  wechatOpenId  String?  @unique
+  wechatUnionId String?
+  loginType     String   @default("phone")
+  status        Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  analyses  Analysis[]
+  histories History[]
+
+  @@map("users")
+}
+
+// 风水分析记录
+model Analysis {
+  id          String   @id @default(uuid())
+  userId      String
+  longitude   Float
+  latitude    Float
+  altitude    Float
+  address     String?
+  weather     Json?
+  result      Json?
+  images      Json?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("analyses")
+}
+
+// 历史记录
+model History {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  content   Json
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("histories")
+}
+
+// 管理员表
+model Admin {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  nickname  String?
+  role      String   @default("normal")
+  status    Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+// 系统配置
+model Config {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  desc      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("configs")
+}

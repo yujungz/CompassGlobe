@@ -1,0 +1,32 @@
+{
+  "name": "compassglobe",
+  "version": "1.0.0",
+  "private": true,
+  "description": "风水地球仪 - 罗盘与地理分析系统",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:admin\" \"npm run dev:server\"",
+    "dev:web": "npm run dev -w @compass/web",
+    "dev:admin": "npm run dev -w @compass/admin",
+    "dev:server": "npm run dev -w @compass/server",
+    "build": "npm run build -w @compass/web -w @compass/admin -w @compass/server",
+    "build:web": "npm run build -w @compass/web",
+    "build:admin": "npm run build -w @compass/admin",
+    "build:server": "npm run build -w @compass/server",
+    "lint": "eslint apps packages --ext .ts,.vue,.js",
+    "clean": "rimraf apps/*/dist apps/*/.vite packages/*/dist",
+    "docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
+    "docker:down": "docker-compose -f docker-compose.dev.yml down",
+    "docker:logs": "docker-compose -f docker-compose.dev.yml logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "rimraf": "^5.0.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
