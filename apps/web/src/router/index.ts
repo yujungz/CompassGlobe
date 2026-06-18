@@ -39,6 +39,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '历史记录', requiresAuth: true },
   },
   {
+    path: '/ai',
+    name: 'AI',
+    component: () => import('@/views/ai/index.vue'),
+    meta: { title: 'AI 创作', requiresAuth: true },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/error/404.vue'),

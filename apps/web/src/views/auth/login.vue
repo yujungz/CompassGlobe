@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { authApi } from '@/api/auth'
 import { useAuth } from '@/composables'
@@ -229,6 +229,13 @@ const stopWechatPoll = () => {
     wechatPollTimer = null
   }
 }
+
+// 组件卸载时清理所有定时器，避免内存泄漏
+onUnmounted(() => {
+  if (smsTimer) clearInterval(smsTimer)
+  if (emailTimer) clearInterval(emailTimer)
+  stopWechatPoll()
+})
 
 const closeWechatModal = () => {
   stopWechatPoll()

@@ -88,7 +88,7 @@ export const generateImage = async (
         size: options?.size || '1024x1024',
       }),
     },
-    options?.timeoutMs ?? 180000
+    options?.timeoutMs ?? 600000
   )
   const data = (await resp.json()) as ImageResponse
   const item = data.data?.[0]
@@ -121,7 +121,7 @@ export const editImage = async (
       headers: { Authorization: `Bearer ${aiConfig.image.key}` },
       body: form,
     },
-    options?.timeoutMs ?? 180000
+    options?.timeoutMs ?? 600000
   )
   const data = (await resp.json()) as ImageResponse
   const item = data.data?.[0]

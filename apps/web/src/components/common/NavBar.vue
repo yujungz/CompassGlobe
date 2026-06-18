@@ -38,6 +38,7 @@ const toggleMenu = () => {
       <router-link to="/" class="nav-link">首页</router-link>
       <router-link v-if="isLoggedIn" to="/analysis" class="nav-link">风水分析</router-link>
       <router-link v-if="isLoggedIn" to="/history" class="nav-link">历史记录</router-link>
+      <router-link v-if="isLoggedIn" to="/ai" class="nav-link">AI 创作</router-link>
     </nav>
 
     <div class="navbar-right hidden-mobile">
@@ -64,6 +65,9 @@ const toggleMenu = () => {
       </router-link>
       <router-link v-if="isLoggedIn" to="/history" class="mobile-nav-link" @click="menuVisible = false">
         历史记录
+      </router-link>
+      <router-link v-if="isLoggedIn" to="/ai" class="mobile-nav-link" @click="menuVisible = false">
+        AI 创作
       </router-link>
       <template v-if="isLoggedIn">
         <router-link to="/profile" class="mobile-nav-link" @click="menuVisible = false">个人中心</router-link>

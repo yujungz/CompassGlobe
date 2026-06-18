@@ -8,6 +8,7 @@ import globeRoutes from './modules/globe/routes.js'
 import analysisRoutes from './modules/analysis/routes.js'
 import userRoutes from './modules/user/routes.js'
 import adminRoutes from './modules/admin/routes.js'
+import aiRoutes from './modules/ai/routes.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -20,7 +21,7 @@ app.use(cors({
     : ['http://localhost:3000', 'http://127.0.0.1:3000'],
   credentials: true,
 }))
-app.use(express.json())
+app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
 
 // 健康检查
@@ -34,6 +35,7 @@ app.use('/api/globe', globeRoutes)
 app.use('/api/analysis', analysisRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/ai', aiRoutes)
 
 // 错误处理
 app.use(notFoundHandler)
