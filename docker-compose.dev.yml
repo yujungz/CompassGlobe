@@ -47,9 +47,13 @@ services:
       - NODE_ENV=development
       - PORT=3001
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/compass?schema=public
+      # 覆盖 .env 的宿主路径，改用容器内挂载路径（与生产统一）
+      - QWEATHER_PRIVATE_KEY_PATH=/run/secrets/qweather_ed25519
     volumes:
       - ./apps/server/src:/app/apps/server/src
       - ./apps/server/prisma:/app/apps/server/prisma
+      # 和风 Ed25519 私钥（需先把私钥放到 secrets/qweather-ed25519.pem）
+      - ./secrets/qweather-ed25519.pem:/run/secrets/qweather_ed25519:ro
     ports:
       - "3001:3001"
     command: sh -c "npx prisma generate && npx tsx watch src/index.ts"

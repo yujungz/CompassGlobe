@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ name: 'Home' }) // 供 <keep-alive include="Home"> 匹配，切走不销毁、保留地球仪状态
+
 import Globe from '@/components/Globe/Globe.vue'
 import NavBar from '@/components/common/NavBar.vue'
 import SidePanel from '@/components/Globe/SidePanel.vue'

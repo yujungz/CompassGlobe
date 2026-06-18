@@ -183,7 +183,7 @@ docker exec compass-server npx prisma studio        # 管理界面
 
 ## 部署注意事项
 
-- **和风天气私钥**：`QWEATHER_PRIVATE_KEY_PATH` 默认指向本地路径（如 `E:/work/.../ed25519-private.pem`），Docker 生产环境没有该路径。需把私钥挂载进 `compass-server` 容器并将该变量改为容器内路径；切勿将私钥打进镜像或提交到代码仓库。
+- **和风天气私钥**：生产部署前，把 Ed25519 私钥放到 `secrets/qweather-ed25519.pem`（该目录已 gitignore，不入库）。生产 `docker-compose.yml` 会把它只读挂载进 `compass-server` 容器的 `/run/secrets/qweather_ed25519`，`QWEATHER_PRIVATE_KEY_PATH` 已固定指向该容器路径。本地开发则用 `apps/server/.env` 的 `QWEATHER_PRIVATE_KEY_PATH` 指向宿主机路径。切勿把私钥打进镜像或提交 git。
 - **天地图防盗刷**：`TDT_KEY` 会下发到前端浏览器，上线前请在天地图控制台为该 Key 配置**域名白名单**。
 - **邮箱验证码**：依赖 `SMTP_*`；短信验证码为模拟实现。
 

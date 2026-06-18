@@ -3,7 +3,11 @@ import { RouterView } from 'vue-router'
 </script>
 
 <template>
-  <RouterView />
+  <RouterView v-slot="{ Component }">
+    <keep-alive include="Home">
+      <component :is="Component" />
+    </keep-alive>
+  </RouterView>
 </template>
 
 <style scoped>

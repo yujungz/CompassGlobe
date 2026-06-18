@@ -47,14 +47,29 @@ services:
       - JWT_SECRET=${JWT_SECRET:-compass-jwt-secret}
       - TDT_KEY=${TDT_KEY:-}
       - AMAP_KEY=${AMAP_KEY:-}
-      - QWEATHER_KEY=${QWEATHER_KEY:-}
+      # 和风天气 JWT（私钥路径为容器内挂载路径，非宿主路径）
+      - QWEATHER_API_HOST=${QWEATHER_API_HOST:-}
+      - QWEATHER_PROJECT_ID=${QWEATHER_PROJECT_ID:-}
+      - QWEATHER_CREDENTIAL_ID=${QWEATHER_CREDENTIAL_ID:-}
+      - QWEATHER_PRIVATE_KEY_PATH=/run/secrets/qweather_ed25519
+      # AI 大模型（OpenAI 兼容）
+      - AI_CHAT_URL=${AI_CHAT_URL:-}
+      - AI_CHAT_KEY=${AI_CHAT_KEY:-}
+      - AI_CHAT_MODEL=${AI_CHAT_MODEL:-}
+      - AI_CHAT_SYSTEM=${AI_CHAT_SYSTEM:-你是一个有帮助的助手。}
+      - AI_IMAGE_URL=${AI_IMAGE_URL:-}
+      - AI_IMAGE_EDIT_URL=${AI_IMAGE_EDIT_URL:-}
+      - AI_IMAGE_KEY=${AI_IMAGE_KEY:-}
+      - AI_IMAGE_MODEL=${AI_IMAGE_MODEL:-}
+      # 邮箱
       - SMTP_HOST=${SMTP_HOST:-smtp.qq.com}
       - SMTP_PORT=${SMTP_PORT:-465}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
-      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      # 和风 Ed25519 私钥只读挂载（生产用）；本地开发用 dev compose 不需要
+      - ./secrets/qweather-ed25519.pem:/run/secrets/qweather_ed25519:ro
     depends_on:
       postgres:
         condition: service_healthy

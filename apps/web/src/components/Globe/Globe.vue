@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, shallowRef } from 'vue'
+import { ref, onMounted, onActivated, shallowRef } from 'vue'
 import * as Cesium from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 import { globeApi } from '@/api/globe'
@@ -34,6 +34,11 @@ const showMsg = (text: string) => {
 
 onMounted(() => {
   initCesium()
+})
+
+// keep-alive 重新激活时画布从 detached 恢复，触发 resize 避免尺寸异常
+onActivated(() => {
+  viewer.value?.resize()
 })
 
 // 构造天地图瓦片 Provider（img_w 卫星影像 / cia_w 中文注记，均为 Web Mercator）
