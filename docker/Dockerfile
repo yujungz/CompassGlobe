@@ -29,7 +29,8 @@ COPY apps/server ./apps/server
 COPY packages/shared ./packages/shared
 
 WORKDIR /app/apps/server
-RUN npx tsc --outDir dist
+RUN npx prisma generate
+RUN npx -p typescript tsc --outDir dist
 
 # ========================================
 # 前端 Web 构建
@@ -42,7 +43,10 @@ COPY package.json pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
 
-RUN npm install -g pnpm && pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+# hoisted 模式：扁平 node_modules，确保 cesium 等包的目录结构完整可访问
+RUN echo 'node-linker=hoisted' > .npmrc \
+ && npm install -g pnpm \
+ && pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 
 COPY apps/web ./apps/web
 COPY packages/shared ./packages/shared
@@ -78,11 +82,13 @@ RUN apt-get update -y && apt-get install -y openssl
 
 WORKDIR /app
 
-COPY --from=server-builder /app/apps/server/dist ./dist
-COPY --from=server-builder /app/apps/server/node_modules ./node_modules
+# 安装生产依赖（npm flat node_modules）
 COPY --from=server-builder /app/apps/server/package.json ./
-COPY --from=server-builder /app/apps/server/prisma ./prisma
+RUN npm install --omit=dev
 
+# 编译产物 + Prisma schema + 生成 Prisma Client
+COPY --from=server-builder /app/apps/server/dist ./dist
+COPY --from=server-builder /app/apps/server/prisma ./prisma
 RUN npx prisma generate
 
 EXPOSE 3001
@@ -96,7 +102,17 @@ FROM nginx:alpine AS nginx-production
 
 RUN rm -rf /usr/share/nginx/html/*
 
-COPY --from=web-builder /app/apps/web/dist /usr/share/nginx/html/front
-COPY --from=admin-builder /app/apps/admin/dist /usr/share/nginx/html/back
+# 前端：展平 vite-plugin-cesium 产生的嵌套 dist/front/cesium/
+COPY --from=web-builder /app/apps/web/dist /tmp/web_dist
+COPY --from=admin-builder /app/apps/admin/dist /tmp/admin_dist
+# 展平：vite-plugin-cesium 输出 dist/front/cesium/（base 前缀所致），提升到 /front/cesium/
+RUN mkdir -p /usr/share/nginx/html/front /usr/share/nginx/html/back \
+ && cp -r /tmp/web_dist/* /usr/share/nginx/html/front/ \
+ && if [ -d /tmp/web_dist/front ]; then \
+      cp -r /tmp/web_dist/front/* /usr/share/nginx/html/front/ \
+      && rm -rf /usr/share/nginx/html/front/front; \
+    fi \
+ && cp -r /tmp/admin_dist/* /usr/share/nginx/html/back/ \
+ && rm -rf /tmp/web_dist /tmp/admin_dist
 
 EXPOSE 80

@@ -4,7 +4,7 @@ import { adminAuthMiddleware, superAdminOnly, type AdminAuthRequest } from '../.
 import { comparePassword, hashPassword, generateAdminToken } from '../../lib/admin-auth.js'
 
 const prisma = new PrismaClient()
-const router = Router()
+const router: Router = Router()
 
 // 管理员登录
 router.post('/login', async (req, res) => {

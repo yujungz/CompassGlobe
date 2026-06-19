@@ -4,7 +4,7 @@ import { authMiddleware, type AuthRequest } from '../../middlewares/auth.js'
 import { chatCompletion, isAiChatConfigured } from '../../lib/ai.js'
 import { buildFengShuiPrompt } from './prompt.js'
 
-const router = Router()
+const router: Router = Router()
 
 // AI 风水分析：基于位置上下文生成报告并落库
 router.post('/analyze', authMiddleware, async (req: AuthRequest, res) => {

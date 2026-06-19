@@ -3,7 +3,7 @@ import prisma from '../../lib/prisma.js'
 import { authMiddleware, type AuthRequest } from '../../middlewares/auth.js'
 import { hashPassword } from '../../lib/auth.js'
 
-const router = Router()
+const router: Router = Router()
 
 // 获取用户信息
 router.get('/profile', authMiddleware, async (req: AuthRequest, res) => {

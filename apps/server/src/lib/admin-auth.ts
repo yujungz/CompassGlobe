@@ -14,7 +14,7 @@ export const comparePassword = async (password: string, hash: string): Promise<b
 }
 
 export const generateAdminToken = (adminId: string, role: string): string => {
-  return jwt.sign({ adminId, role, type: 'admin' }, ADMIN_JWT_SECRET, { expiresIn: ADMIN_JWT_EXPIRES_IN })
+  return jwt.sign({ adminId, role, type: 'admin' }, ADMIN_JWT_SECRET, { expiresIn: ADMIN_JWT_EXPIRES_IN } as jwt.SignOptions)
 }
 
 export const verifyAdminToken = (token: string): { adminId: string; role: string; type: string } | null => {

@@ -5,7 +5,7 @@ import { sendEmailCode, verifyEmailCode } from '../../lib/email.js'
 import { generateQrcode, checkScanStatus, confirmScan } from '../../lib/wechat-mock.js'
 import { authMiddleware, type AuthRequest } from '../../middlewares/auth.js'
 
-const router = Router()
+const router: Router = Router()
 
 // ============ 发送验证码 ============
 

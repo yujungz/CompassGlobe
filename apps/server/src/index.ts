@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import express from 'express'
+import express, { type Express } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import { errorHandler, notFoundHandler } from './middlewares/error.js'
@@ -10,7 +10,7 @@ import userRoutes from './modules/user/routes.js'
 import adminRoutes from './modules/admin/routes.js'
 import aiRoutes from './modules/ai/routes.js'
 
-const app = express()
+const app: Express = express()
 const PORT = process.env.PORT || 3001
 
 // 中间件

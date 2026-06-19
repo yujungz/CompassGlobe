@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { authMiddleware, type AuthRequest } from '../../middlewares/auth.js'
 import { generateImage, editImage, isAiImageConfigured } from '../../lib/ai.js'
 
-const router = Router()
+const router: Router = Router()
 
 // 去掉 data URL 前缀，拿到纯 base64
 const stripDataUrl = (s: string) => String(s).replace(/^data:image\/\w+;base64,/, '')

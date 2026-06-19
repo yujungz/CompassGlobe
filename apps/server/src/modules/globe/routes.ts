@@ -3,7 +3,7 @@ import axios from 'axios'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 
-const router = Router()
+const router: Router = Router()
 
 const TDT_KEY = process.env.TDT_KEY || ''
 const AMAP_KEY = process.env.AMAP_KEY || ''
