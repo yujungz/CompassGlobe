@@ -272,6 +272,7 @@ async function loadEditHistoryList() {
 }
 
 // ===== AI 对话 =====
+const chatSidebarOpen = ref(false)
 const conversations = ref<ConversationItem[]>([])
 const activeConvId = ref<string | null>(null)
 const activeConvTitle = ref('')
@@ -497,7 +498,9 @@ const onEditTab = () => {
       <!-- AI 对话 -->
       <section v-else class="chat-section">
         <div class="chat-sidebar">
-          <button class="new-conv-btn" @click="createConversation">+ 新建对话</button>
+          <button class="mobile-toggle-btn" @click="chatSidebarOpen = !chatSidebarOpen">☰ 对话列表</button>
+          <div :class="{ 'sidebar-inner': true, open: chatSidebarOpen }">
+            <button class="new-conv-btn" @click="createConversation">+ 新建对话</button>
           <div class="conv-list" v-if="conversations.length">
             <div
               v-for="conv in conversations"
@@ -511,6 +514,7 @@ const onEditTab = () => {
             </div>
           </div>
           <p v-else-if="!convLoading" class="conv-empty">暂无对话，点击上方按钮创建</p>
+          </div>
         </div>
         <div class="chat-main">
           <template v-if="activeConvId">
@@ -792,6 +796,12 @@ const onEditTab = () => {
   overflow: hidden;
   min-height: 500px;
   max-height: 70vh;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    max-height: none;
+    min-height: calc(100vh - 200px);
+  }
 }
 
 .chat-sidebar {
@@ -799,6 +809,13 @@ const onEditTab = () => {
   flex-shrink: 0;
   background: rgba(0, 0, 0, 0.2);
   padding: 12px;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    max-height: 30vh;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -862,11 +879,35 @@ const onEditTab = () => {
   padding: 20px 0;
 }
 
+// Mobile sidebar
+.mobile-toggle-btn {
+  display: none;
+  @media (max-width: 768px) {
+    display: block; width: 100%; padding: 10px;
+    border: 1px solid rgba(255,255,255,.15);
+    background: rgba(74,144,217,.15); color: #fff;
+    border-radius: 8px; font-size: 14px; cursor: pointer;
+  }
+}
+
+.sidebar-inner {
+  @media (max-width: 768px) {
+    display: none;
+    &.open { display: block; margin-top: 8px; }
+    .new-conv-btn { margin-bottom: 8px; }
+  }
+}
+
 .chat-main {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
+
+  @media (max-width: 768px) {
+    flex: 1;
+    min-height: 0;
+  }
 }
 
 .chat-placeholder {
