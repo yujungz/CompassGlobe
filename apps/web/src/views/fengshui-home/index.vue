@@ -90,17 +90,28 @@ function stopCamera() {
   cameraActive.value = false
 }
 
-function capturePhoto() {
+async function capturePhoto() {
   const video = cameraVideo.value
   if (!video) { error.value = '摄像头未就绪'; return }
   if (!video.videoWidth) { error.value = '视频尚未加载完成'; return }
   const canvas = document.createElement('canvas')
   canvas.width = video.videoWidth; canvas.height = video.videoHeight
   canvas.getContext('2d')!.drawImage(video, 0, 0)
-  canvas.toBlob(blob => {
+  canvas.toBlob(async blob => {
     if (!blob) { error.value = '拍照失败'; return }
     const file = new File([blob], `camera_${Date.now()}.jpg`, { type: 'image/jpeg' })
     addFiles([file])
+    // 关闭摄像头
+    stopCamera()
+    cameraEnabled.value = false
+    // 聚焦到刚添加的图片说明输入框
+    await nextTick()
+    const inputs = document.querySelectorAll('.desc-input') as NodeListOf<HTMLInputElement>
+    if (inputs.length > 0) {
+      const last = inputs[inputs.length - 1]
+      last.focus()
+      last.placeholder = '请输入图片说明…'
+    }
     error.value = ''
   }, 'image/jpeg', 0.9)
 }
