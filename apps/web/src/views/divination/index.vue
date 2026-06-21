@@ -153,7 +153,8 @@ async function downloadPdf(id: string) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `八卦问事分析_${id.slice(0, 8)}.pdf`
+    const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,15)
+    a.download = `八卦问事分析_${ts}.pdf`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

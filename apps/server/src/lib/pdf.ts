@@ -3,6 +3,14 @@ import type { Response } from 'express'
 import fs from 'fs'
 import https from 'node:https'
 
+// 生成带日期+随机数的文件后缀，避免重名
+function fileSuffix(): string {
+  const now = new Date()
+  const date = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`
+  const rand = Math.random().toString(36).slice(2, 6)
+  return `${date}_${rand}`
+}
+
 // 中文字体 buffer
 let fontBuffer: Buffer | null = null
 
@@ -101,7 +109,7 @@ export async function generateFortunePDF(res: Response, data: {
 
   await registerCJKFont(doc)
 
-  const filename = encodeURIComponent(`流年大运_${data.name}_${data.predictYear}年.pdf`)
+  const filename = encodeURIComponent(`流年大运_${data.name}_${data.predictYear}年_${fileSuffix()}.pdf`)
   res.setHeader('Content-Type', 'application/pdf')
   res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${filename}`)
   doc.pipe(res)
@@ -179,7 +187,7 @@ export async function generateDivinationPDF(res: Response, data: {
 
   await registerCJKFont(doc)
 
-  const filename = encodeURIComponent(`八卦问事_${data.name}.pdf`)
+  const filename = encodeURIComponent(`八卦问事_${data.name}_${fileSuffix()}.pdf`)
   res.setHeader('Content-Type', 'application/pdf')
   res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${filename}`)
   doc.pipe(res)
@@ -247,7 +255,7 @@ export async function generateFengshuiHomePDF(res: Response, data: {
   })
   await registerCJKFont(doc)
 
-  const filename = encodeURIComponent('居家风水分析报告.pdf')
+  const filename = encodeURIComponent(`居家风水分析报告_${fileSuffix()}.pdf`)
   res.setHeader('Content-Type', 'application/pdf')
   res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${filename}`)
   doc.pipe(res)

@@ -188,7 +188,8 @@ async function downloadPDF(id: string) {
     if (!resp.ok) { const err = await resp.json().catch(() => ({ error: '下载失败' })); alert(err.error); return }
     const blob = await resp.blob()
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href = url; a.download = `居家风水分析报告.pdf`
+    const a = document.createElement('a'); a.href = url; const ts = new Date().toISOString().replace(/[-:T]/g,'').slice(0,15)
+    a.download = `居家风水分析报告_${ts}.pdf`
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
   } catch { alert('下载失败') }
 }
