@@ -238,12 +238,25 @@ const handleAnalyze = () => {
     top: auto;
     width: 100%;
     height: auto;
-    max-height: 50vh;
+    max-height: 55vh;
     border-radius: 16px 16px 0 0;
+    display: flex;
+    flex-direction: column;
 
     &.collapsed {
-      height: 50px;
+      height: 48px;
       width: 100%;
+    }
+
+    .panel-content {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .analyze-btn {
+      flex-shrink: 0;
+      margin: 8px 16px 16px;
     }
   }
 }
