@@ -48,32 +48,35 @@ function gcj02ToWgs84(gcjLng: number, gcjLat: number): { lng: number; lat: numbe
   return { lng: gcjLng - dLng, lat: gcjLat - dLat }
 }
 
-const TDT_KEY = process.env.TDT_KEY || ''
-const AMAP_KEY = process.env.AMAP_KEY || ''
+import { getConfig } from '../../lib/config.js'
 
-// 和风天气 JWT(Ed25519) 认证配置
-const QWEATHER_API_HOST = process.env.QWEATHER_API_HOST || '' // 例如 k57p44c8p6.re.qweatherapi.com
-const QWEATHER_PROJECT_ID = process.env.QWEATHER_PROJECT_ID || '' // sub
-const QWEATHER_CREDENTIAL_ID = process.env.QWEATHER_CREDENTIAL_ID || '' // kid
+const amapKey = () => getConfig('thirdParty.AMAP_KEY', 'AMAP_KEY')
+const tdtKey = () => getConfig('thirdParty.TDT_KEY', 'TDT_KEY')
+const qwHost = () => getConfig('thirdParty.QWEATHER_API_HOST', 'QWEATHER_API_HOST')
+const qwPid = () => getConfig('thirdParty.QWEATHER_PROJECT_ID', 'QWEATHER_PROJECT_ID')
+const qwCid = () => getConfig('thirdParty.QWEATHER_CREDENTIAL_ID', 'QWEATHER_CREDENTIAL_ID')
 const QWEATHER_PRIVATE_KEY_PATH = process.env.QWEATHER_PRIVATE_KEY_PATH || ''
 
-const isQWeatherConfigured = () =>
-  !!(QWEATHER_API_HOST && QWEATHER_PROJECT_ID && QWEATHER_CREDENTIAL_ID && QWEATHER_PRIVATE_KEY_PATH)
+const isQWeatherConfigured = async () => {
+  const [h, p, c] = await Promise.all([qwHost(), qwPid(), qwCid()])
+  return !!(h && p && c && QWEATHER_PRIVATE_KEY_PATH)
+}
 
 // 和风 JWT 令牌生成 + 短期缓存（exp 前自动刷新，避免每次请求重签）
 let qweatherTokenCache: { token: string; exp: number } | null = null
-const getQWeatherToken = (): string => {
+const getQWeatherToken = async (): Promise<string> => {
   const now = Math.floor(Date.now() / 1000)
   if (qweatherTokenCache && qweatherTokenCache.exp - now > 60) {
     return qweatherTokenCache.token
   }
+  const [kid, sub] = await Promise.all([qwCid(), qwPid()])
   const privateKey = crypto.createPrivateKey({
     key: fs.readFileSync(QWEATHER_PRIVATE_KEY_PATH, 'utf8'),
     format: 'pem',
   })
-  const iat = now - 30 // 官方建议 iat 设为当前时间前 30 秒，防时钟误差
-  const header = { alg: 'EdDSA', kid: QWEATHER_CREDENTIAL_ID }
-  const payload = { sub: QWEATHER_PROJECT_ID, iat, exp: iat + 900 }
+  const iat = now - 30
+  const header = { alg: 'EdDSA', kid }
+  const payload = { sub, iat, exp: iat + 900 }
   const b64url = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url')
   const signingInput = `${b64url(header)}.${b64url(payload)}`
   const sig = crypto.sign(null, Buffer.from(signingInput), privateKey) // Ed25519: 算法参数传 null
@@ -84,8 +87,8 @@ const getQWeatherToken = (): string => {
 
 // 下发天地图密钥（前端地球仪瓦片图层使用）
 // 天地图瓦片密钥本质为客户端密钥，会暴露在浏览器，生产环境应在天地图控制台配置域名白名单
-router.get('/tdt-key', (_req, res) => {
-  res.json({ key: TDT_KEY })
+router.get('/tdt-key', async (_req, res) => {
+  res.json({ key: await tdtKey() })
 })
 
 // 获取位置信息
@@ -99,10 +102,10 @@ router.get('/location', async (req, res) => {
   try {
     // 逆地理编码
     let address = ''
-    if (AMAP_KEY) {
+    if (await amapKey()) {
       const response = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
         params: {
-          key: AMAP_KEY,
+          key: await amapKey(),
           location: `${longitude},${latitude}`,
           extensions: 'base',
         },
@@ -138,10 +141,10 @@ router.get('/nearby', async (req, res) => {
   if (!longitude || !latitude) return res.status(400).json({ error: '缺少经纬度参数' })
 
   try {
-    if (!AMAP_KEY) return res.json({ places: [] })
+    if (!(await amapKey())) return res.json({ places: [] })
     const response = await axios.get('https://restapi.amap.com/v3/place/around', {
       params: {
-        key: AMAP_KEY,
+        key: await amapKey(),
         location: `${longitude},${latitude}`,
         radius: 3000,
         offset: 10,
@@ -178,12 +181,12 @@ router.get('/search-place', async (req, res) => {
   if (!keyword || !longitude || !latitude) return res.status(400).json({ error: '缺少参数' })
 
   try {
-    if (!AMAP_KEY) return res.json(null)
+    if (!(await amapKey())) return res.json(null)
     // 先用逆地理编码获取城市名
     let city = ''
     try {
       const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
-        params: { key: AMAP_KEY, location: `${longitude},${latitude}`, extensions: 'base' },
+        params: { key: await amapKey(), location: `${longitude},${latitude}`, extensions: 'base' },
         timeout: 3000,
       })
       city = geoResp.data?.regeocode?.addressComponent?.city || ''
@@ -193,7 +196,7 @@ router.get('/search-place', async (req, res) => {
     // 用 text 搜索 + city 限制范围
     const response = await axios.get('https://restapi.amap.com/v3/place/text', {
       params: {
-        key: AMAP_KEY,
+        key: await amapKey(),
         keywords: keyword,
         city: city || undefined,
         citylimit: city ? 'true' : undefined,
@@ -295,13 +298,13 @@ router.get('/weather', async (req, res) => {
     weather: '晴',
   }
 
-  if (!isQWeatherConfigured()) {
+  if (!(await isQWeatherConfigured())) {
     return res.json(fallback)
   }
 
   try {
-    const token = getQWeatherToken()
-    const response = await axios.get(`https://${QWEATHER_API_HOST}/v7/weather/now`, {
+    const [token, host] = await Promise.all([getQWeatherToken(), qwHost()])
+    const response = await axios.get(`https://${host}/v7/weather/now`, {
       params: { location: `${longitude},${latitude}`, lang: 'zh' },
       headers: { Authorization: `Bearer ${token}` },
       timeout: 8000,

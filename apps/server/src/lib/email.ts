@@ -1,26 +1,25 @@
 import nodemailer from 'nodemailer'
+import { getConfig } from './config.js'
 
-const SMTP_HOST = process.env.SMTP_HOST || 'smtp.163.com'
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465')
-const SMTP_USER = process.env.SMTP_USER || ''
-const SMTP_PASS = process.env.SMTP_PASS || ''
-const SMTP_FROM = process.env.SMTP_FROM || `"风水地球仪" <${SMTP_USER}>`
+// SMTP 配置从 DB 动态读取（优先 DB，回退 env）
+const smtpHost = () => getConfig('thirdParty.SMTP_HOST', 'SMTP_HOST')
+const smtpPort = async () => parseInt(await getConfig('thirdParty.SMTP_PORT', 'SMTP_PORT') || '465')
+const smtpUser = () => getConfig('thirdParty.SMTP_USER', 'SMTP_USER')
+const smtpPass = () => getConfig('thirdParty.SMTP_PASS', 'SMTP_PASS')
+const smtpFrom = async () => {
+  const user = await smtpUser()
+  return process.env.SMTP_FROM || `"风水地球仪" <${user}>`
+}
 
-// 验证码缓存（开发阶段用内存，生产环境应使用 Redis）
+// 验证码缓存
 const codeCache = new Map<string, { code: string; expiresAt: number }>()
 
-// 创建邮件发送器
-const transporter = SMTP_USER
-  ? nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: true,
-      auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
-      },
-    })
-  : null
+// 动态创建邮件发送器
+async function getTransporter() {
+  const [host, port, user, pass] = await Promise.all([smtpHost(), smtpPort(), smtpUser(), smtpPass()])
+  if (!user) return null
+  return nodemailer.createTransport({ host, port, secure: true, auth: { user, pass } })
+}
 
 // 生成6位验证码
 const generateCode = (): string => {
@@ -34,9 +33,10 @@ export const sendEmailCode = async (email: string): Promise<void> => {
 
   codeCache.set(email, { code, expiresAt })
 
+  const transporter = await getTransporter()
   if (transporter) {
     await transporter.sendMail({
-      from: SMTP_FROM,
+      from: await smtpFrom(),
       to: email,
       subject: '风水地球仪 - 验证码',
       html: `
