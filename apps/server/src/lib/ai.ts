@@ -10,7 +10,7 @@ export interface ChatMessage {
 export interface ChatContentPart {
   type: 'text' | 'image'
   text?: string
-  image?: { data: string; media_type: string }
+  source?: { type: 'base64'; media_type: string; data: string }
 }
 
 export interface GeneratedImage {
