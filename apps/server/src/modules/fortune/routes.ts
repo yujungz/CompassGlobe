@@ -111,7 +111,7 @@ router.post('/predict', authMiddleware, async (req: AuthRequest, res) => {
           zodiac: calcResult.zodiac,
           constellation: calcResult.constellation,
           predictYear: calcResult.predictYear,
-          result: { analysis: aiResult, daYun: calcResult.daYun },
+          result: { analysis: aiResult, daYun: JSON.parse(JSON.stringify(calcResult.daYun)) },
         },
       })
 

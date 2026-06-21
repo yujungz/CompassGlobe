@@ -32,7 +32,9 @@ let minioReady = false
 async function getMinio() {
   if (minioClient) return minioClient
   try {
-    const { Client } = await import('minio')
+    // dynamic import to avoid build-time dependency on minio
+    const minioMod = await eval('import("minio")') as any
+    const { Client } = minioMod
     minioClient = new Client({
       endPoint: process.env.MINIO_ENDPOINT || 'minio',
       port: parseInt(process.env.MINIO_PORT || '9000'),

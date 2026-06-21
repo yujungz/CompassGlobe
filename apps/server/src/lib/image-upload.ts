@@ -28,7 +28,7 @@ export const fengshuiUpload = multer({
     fileSize: MAX_FILE_SIZE,
     files: MAX_FILES,
   },
-}).array('images', MAX_FILES)
+}).array('images', MAX_FILES) as any
 
 /**
  * 将 Buffer 转为 base64 data URL

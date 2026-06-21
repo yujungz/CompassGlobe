@@ -14,7 +14,7 @@ const router: Router = Router()
 
 // 上传图片 + AI 分析
 router.post('/', authMiddleware, async (req: AuthRequest, res) => {
-  fengshuiUpload(req as any, res as any, async (err) => {
+  fengshuiUpload(req as any, res as any, async (err: any) => {
     if (err) {
       return res.status(400).json({ error: err.message || '图片上传失败' })
     }

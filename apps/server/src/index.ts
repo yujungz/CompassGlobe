@@ -49,7 +49,7 @@ app.use('/api/divination', divinationRoutes)
 // MinIO 存储代理（通过 API 访问文件，避免直接暴露 MinIO）
 app.get('/api/storage/*', async (req, res) => {
   try {
-    const key = req.params[0]
+    const key = (req.params as Record<string, string>)['0']
     if (!key) return res.status(400).json({ error: '缺少文件路径' })
     const { buffer, mimeType } = await getObject(key)
     res.setHeader('Content-Type', mimeType)

@@ -54,7 +54,8 @@ router.post('/edit', authMiddleware, async (req: AuthRequest, res) => {
     let imageBuffer = Buffer.from(stripDataUrl(image), 'base64')
     // Resize image to 512px to avoid AI API rejecting large payloads
     try {
-      imageBuffer = await sharp(imageBuffer).resize(512, 512, { fit: 'inside', withoutEnlargement: true }).png({ compressionLevel: 9 }).toBuffer()
+      const resized: any = await sharp(imageBuffer).resize(512, 512, { fit: 'inside', withoutEnlargement: true }).png({ compressionLevel: 9 }).toBuffer()
+      imageBuffer = Buffer.from(resized)
     } catch { /* sharp fails? use original */ }
     const masksBuffer = mask ? Buffer.from(stripDataUrl(mask), 'base64') : undefined
     const result = await editImage(imageBuffer, prompt, { size, mask: masksBuffer })
