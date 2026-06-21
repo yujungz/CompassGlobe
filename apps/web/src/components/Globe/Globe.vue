@@ -176,6 +176,12 @@ const locateCurrentPosition = () => {
   }
   if (locating.value) return
 
+  // Chrome/chromium 在非 HTTPS 下静默拒绝；给明确提示
+  if (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    showMsg('定位功能需要 HTTPS，请使用 https:// 访问')
+    return
+  }
+
   locating.value = true
   navigator.geolocation.getCurrentPosition(
     (position) => {
@@ -191,13 +197,13 @@ const locateCurrentPosition = () => {
     (error) => {
       locating.value = false
       const msgMap: Record<number, string> = {
-        1: '定位权限被拒绝，请在浏览器中允许位置权限后重试',
+        1: '定位权限被拒绝，请在浏览器设置中允许位置权限后重试',
         2: '暂时无法获取位置，请稍后重试',
         3: '定位超时，请重试',
       }
       showMsg(msgMap[error.code] || `定位失败：${error.message}`)
     },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
   )
 }
 
