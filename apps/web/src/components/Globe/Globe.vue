@@ -189,8 +189,10 @@ const locateCurrentPosition = () => {
       const { longitude, latitude } = position.coords
       const altitude = position.coords.altitude ?? 0
       selectAndMark(longitude, latitude, altitude)
+      const currentH = getCameraHeight()
+      const targetH = Math.min(currentH, 10000)
       viewer.value?.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(longitude, latitude, 10000),
+        destination: Cesium.Cartesian3.fromDegrees(longitude, latitude, targetH),
         duration: 2,
       })
     },
