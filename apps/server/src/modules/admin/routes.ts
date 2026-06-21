@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { PrismaClient } from '@prisma/client'
 import { adminAuthMiddleware, superAdminOnly, type AdminAuthRequest } from '../../middlewares/admin-auth.js'
 import { comparePassword, hashPassword, generateAdminToken } from '../../lib/admin-auth.js'
+import { refreshCacheSection } from '../../lib/config.js'
 
 const prisma = new PrismaClient()
 const router: Router = Router()
@@ -656,6 +657,7 @@ router.put('/config/ports', adminAuthMiddleware, async (req, res) => {
       update: { value: ports },
       create: { key: 'ports', value: ports, desc: '端口映射配置' },
     })
+    refreshCacheSection('ports', ports)
     res.json({ message: '保存成功' })
   } catch (error) {
     console.error('Save ports error:', error)
@@ -671,6 +673,7 @@ router.put('/config/third-party', adminAuthMiddleware, async (req, res) => {
       update: { value: req.body },
       create: { key: 'thirdParty', value: req.body, desc: '第三方接口配置' },
     })
+    refreshCacheSection('thirdParty', req.body)
     res.json({ message: '保存成功' })
   } catch (error) {
     console.error('Save third-party error:', error)
@@ -686,6 +689,7 @@ router.put('/config/ai-model', adminAuthMiddleware, async (req, res) => {
       update: { value: req.body },
       create: { key: 'aiModel', value: req.body, desc: '大模型参数配置' },
     })
+    refreshCacheSection('aiModel', req.body)
     res.json({ message: '保存成功' })
   } catch (error) {
     console.error('Save AI model error:', error)

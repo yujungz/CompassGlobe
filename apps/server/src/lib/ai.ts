@@ -25,7 +25,18 @@ interface ImageResponse {
   data?: { b64_json?: string; url?: string }[]
 }
 
-// 从环境变量读取配置（模块加载时快照，与 lib/email.ts 风格一致）
+import { getConfig } from './config.js'
+
+// 动态读取配置：DB 优先，回退 env
+const aiUrl = () => getConfig('aiModel.AI_CHAT_URL', 'AI_CHAT_URL')
+const aiKey = () => getConfig('aiModel.AI_CHAT_KEY', 'AI_CHAT_KEY')
+const aiModel = () => getConfig('aiModel.AI_CHAT_MODEL', 'AI_CHAT_MODEL')
+const imgUrl = () => getConfig('aiModel.AI_IMAGE_URL', 'AI_IMAGE_URL')
+const imgEditUrl = () => getConfig('aiModel.AI_IMAGE_EDIT_URL', 'AI_IMAGE_EDIT_URL')
+const imgKey = () => getConfig('aiModel.AI_IMAGE_KEY', 'AI_IMAGE_KEY')
+const imgModel = () => getConfig('aiModel.AI_IMAGE_MODEL', 'AI_IMAGE_MODEL')
+
+// 兼容旧代码的 sync 导出（模块加载时 snapshot env，异步 API 会优先 DB）
 export const aiConfig = {
   chat: {
     url: process.env.AI_CHAT_URL || '',
@@ -34,16 +45,22 @@ export const aiConfig = {
     system: process.env.AI_CHAT_SYSTEM || '你是一个有帮助的助手。',
   },
   image: {
-    url: process.env.AI_IMAGE_URL || '', // 文生图 generations
-    editUrl: process.env.AI_IMAGE_EDIT_URL || '', // 修图 edits
+    url: process.env.AI_IMAGE_URL || '',
+    editUrl: process.env.AI_IMAGE_EDIT_URL || '',
     key: process.env.AI_IMAGE_KEY || '',
     model: process.env.AI_IMAGE_MODEL || '',
   },
 }
 
-export const isAiChatConfigured = () => !!(aiConfig.chat.url && aiConfig.chat.key && aiConfig.chat.model)
-export const isAiImageConfigured = () =>
-  !!(aiConfig.image.url && aiConfig.image.editUrl && aiConfig.image.key && aiConfig.image.model)
+export async function isAiChatConfigured(): Promise<boolean> {
+  const u = await aiUrl(); const k = await aiKey(); const m = await aiModel()
+  return !!(u && k && m)
+}
+
+export async function isAiImageConfigured(): Promise<boolean> {
+  const u = await imgUrl(); const eu = await imgEditUrl(); const k = await imgKey(); const m = await imgModel()
+  return !!(u && eu && k && m)
+}
 
 // 带超时的 fetch，避免长时间挂起
 const fetchWithTimeout = (url: string, init: RequestInit, ms: number) => {
@@ -57,14 +74,15 @@ export const chatCompletion = async (
   messages: ChatMessage[],
   options?: { model?: string; temperature?: number; timeoutMs?: number }
 ): Promise<string> => {
-  const body: Record<string, unknown> = { model: options?.model || aiConfig.chat.model, messages }
+  const [url, key, model] = await Promise.all([aiUrl(), aiKey(), aiModel()])
+  const body: Record<string, unknown> = { model: options?.model || model, messages }
   if (options?.temperature != null) body.temperature = options.temperature
 
   const resp = await fetchWithTimeout(
-    aiConfig.chat.url,
+    url,
     {
       method: 'POST',
-      headers: { Authorization: `Bearer ${aiConfig.chat.key}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     },
     options?.timeoutMs ?? 60000
@@ -82,13 +100,14 @@ export const generateImage = async (
   prompt: string,
   options?: { model?: string; size?: string; n?: number; timeoutMs?: number }
 ): Promise<GeneratedImage> => {
+  const [url, key, model] = await Promise.all([imgUrl(), imgKey(), imgModel()])
   const resp = await fetchWithTimeout(
-    aiConfig.image.url,
+    url,
     {
       method: 'POST',
-      headers: { Authorization: `Bearer ${aiConfig.image.key}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: options?.model || aiConfig.image.model,
+        model: options?.model || model,
         prompt,
         n: options?.n ?? 1,
         size: options?.size || '1024x1024',
@@ -110,8 +129,9 @@ export const editImage = async (
   prompt: string,
   options?: { model?: string; size?: string; mask?: Buffer; timeoutMs?: number }
 ): Promise<GeneratedImage> => {
+  const [editUrl, key, model] = await Promise.all([imgEditUrl(), imgKey(), imgModel()])
   const form = new FormData()
-  form.append('model', options?.model || aiConfig.image.model)
+  form.append('model', options?.model || model)
   form.append('prompt', prompt)
   form.append('n', '1')
   form.append('size', options?.size || '1024x1024')
@@ -121,10 +141,10 @@ export const editImage = async (
   }
 
   const resp = await fetchWithTimeout(
-    aiConfig.image.editUrl,
+    editUrl,
     {
       method: 'POST',
-      headers: { Authorization: `Bearer ${aiConfig.image.key}` },
+      headers: { Authorization: `Bearer ${key}` },
       body: form,
     },
     options?.timeoutMs ?? 600000
