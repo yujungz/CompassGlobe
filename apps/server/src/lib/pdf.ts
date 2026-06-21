@@ -1,22 +1,23 @@
 import PDFDocument from 'pdfkit'
 import type { Response } from 'express'
 import fs from 'fs'
+import https from 'node:https'
 
 // 中文字体 buffer
 let fontBuffer: Buffer | null = null
 
-function loadChineseFont(): Buffer {
+async function loadChineseFont(): Promise<Buffer> {
   if (fontBuffer) return fontBuffer
 
-  const paths = [
+  // 优先使用独立 OTF（PDFKit 不支持 TTC）
+  const otfPaths = [
     '/tmp/NotoSansSC-Regular.otf',
-    '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
     'C:/Windows/Fonts/msyh.ttc',
     'C:/Windows/Fonts/simsun.ttc',
     '/System/Library/Fonts/PingFang.ttc',
   ]
 
-  for (const p of paths) {
+  for (const p of otfPaths) {
     try {
       if (fs.existsSync(p)) {
         fontBuffer = fs.readFileSync(p)
@@ -26,11 +27,48 @@ function loadChineseFont(): Buffer {
     } catch { /* continue */ }
   }
 
+  // 如果没有 OTF，尝试从 GitHub 下载
+  const otfUrl = 'https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf'
+  try {
+    console.log('Downloading Chinese OTF font for PDF...')
+    const downloadPromise = new Promise<Buffer>((resolve, reject) => {
+      https.get(otfUrl, { headers: { 'User-Agent': 'Node.js' } }, (res: any) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          https.get(res.headers.location, (r2: any) => {
+            const chunks: Buffer[] = []
+            r2.on('data', (c: Buffer) => chunks.push(c))
+            r2.on('end', () => resolve(Buffer.concat(chunks)))
+            r2.on('error', reject)
+          })
+        } else {
+          const chunks: Buffer[] = []
+          res.on('data', (c: Buffer) => chunks.push(c))
+          res.on('end', () => resolve(Buffer.concat(chunks)))
+          res.on('error', reject)
+        }
+      }).on('error', reject)
+    })
+    fontBuffer = await downloadPromise
+    if (fontBuffer.length > 10000) {
+      fs.writeFileSync('/tmp/NotoSansSC-Regular.otf', fontBuffer)
+      console.log('PDF font downloaded:', (fontBuffer.length / 1024 / 1024).toFixed(1), 'MB')
+      return fontBuffer
+    }
+  } catch (e) { console.warn('Download failed, trying TTC fallback') }
+
+  // 最终回退 TTC（可能失败）
+  const ttcPath = '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'
+  if (fs.existsSync(ttcPath)) {
+    fontBuffer = fs.readFileSync(ttcPath)
+    console.log('PDF font (TTC fallback):', ttcPath, `(${(fontBuffer.length / 1024 / 1024).toFixed(1)}MB)`)
+    return fontBuffer
+  }
+
   throw new Error('No Chinese font found')
 }
 
-function registerCJKFont(doc: PDFKit.PDFDocument) {
-  const buf = loadChineseFont()
+async function registerCJKFont(doc: PDFKit.PDFDocument) {
+  const buf = await loadChineseFont()
   doc.registerFont('CJK', buf)
   doc.font('CJK')
 }
@@ -38,7 +76,7 @@ function registerCJKFont(doc: PDFKit.PDFDocument) {
 /**
  * 生成流年大运 PDF 并流式返回给客户端
  */
-export function generateFortunePDF(res: Response, data: {
+export async function generateFortunePDF(res: Response, data: {
   name: string
   gender: string
   birthInfo: string
@@ -61,7 +99,7 @@ export function generateFortunePDF(res: Response, data: {
     info: { Title: `流年大运分析 - ${data.name}`, Author: '风水地球仪' },
   })
 
-  registerCJKFont(doc)
+  await registerCJKFont(doc)
 
   const filename = encodeURIComponent(`流年大运_${data.name}_${data.predictYear}年.pdf`)
   res.setHeader('Content-Type', 'application/pdf')
@@ -115,7 +153,7 @@ export function generateFortunePDF(res: Response, data: {
 /**
  * 生成八卦问事 PDF 并流式返回给客户端
  */
-export function generateDivinationPDF(res: Response, data: {
+export async function generateDivinationPDF(res: Response, data: {
   name: string
   gender: string
   question: string
@@ -139,7 +177,7 @@ export function generateDivinationPDF(res: Response, data: {
     info: { Title: `八卦问事 - ${data.name}`, Author: '风水地球仪' },
   })
 
-  registerCJKFont(doc)
+  await registerCJKFont(doc)
 
   const filename = encodeURIComponent(`八卦问事_${data.name}.pdf`)
   res.setHeader('Content-Type', 'application/pdf')
@@ -198,7 +236,7 @@ export function generateDivinationPDF(res: Response, data: {
 /**
  * 生成居家风水 PDF
  */
-export function generateFengshuiHomePDF(res: Response, data: {
+export async function generateFengshuiHomePDF(res: Response, data: {
   descriptions: string[]
   result: string
   createdAt: string
