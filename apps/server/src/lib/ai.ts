@@ -8,9 +8,9 @@ export interface ChatMessage {
 }
 
 export interface ChatContentPart {
-  type: 'text' | 'image_url'
+  type: 'text' | 'image'
   text?: string
-  image_url?: { url: string; detail?: 'low' | 'high' | 'auto' }
+  image?: { data: string; media_type: string }
 }
 
 export interface GeneratedImage {
@@ -90,7 +90,8 @@ export const chatCompletion = async (
   const data = (await resp.json()) as ChatResponse
   const content = data.choices?.[0]?.message?.content
   if (!resp.ok || !content) {
-    throw new Error(`AI 对话失败: HTTP ${resp.status}`)
+    const detail = (data as any).error?.message || JSON.stringify(data).slice(0, 300)
+    throw new Error(`AI 对话失败: HTTP ${resp.status} — ${detail}`)
   }
   return content
 }

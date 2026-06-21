@@ -25,11 +25,8 @@ export function buildFengshuiHomePrompt(
     const b64 = imageBuffers[i].toString('base64')
     const mime = mimeTypes[i] || 'image/jpeg'
     userParts.push({
-      type: 'image_url',
-      image_url: {
-        url: `data:${mime};base64,${b64}`,
-        detail: 'auto',
-      },
+      type: 'image',
+      image: { data: b64, media_type: mime },
     })
   }
 
