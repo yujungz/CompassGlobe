@@ -3,7 +3,6 @@ import { ref, onMounted, onActivated, shallowRef } from 'vue'
 import * as Cesium from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 import { globeApi } from '@/api/globe'
-import { gcj02ToWgs84 } from '@/utils/coord'
 
 const props = defineProps<{
   initialView?: {
@@ -187,14 +186,11 @@ const locateCurrentPosition = () => {
   navigator.geolocation.getCurrentPosition(
     (position) => {
       locating.value = false
-      const lon = position.coords.longitude
-      const lat = position.coords.latitude
+      const { longitude, latitude } = position.coords
       const altitude = position.coords.altitude ?? 0
-      // GCJ-02 → WGS-84（中国大陆浏览器定位标准校正）
-      const wgs = gcj02ToWgs84(lon, lat)
-      selectAndMark(wgs.lng, wgs.lat, altitude)
+      selectAndMark(longitude, latitude, altitude)
       viewer.value?.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(wgs.lng, wgs.lat, 10000),
+        destination: Cesium.Cartesian3.fromDegrees(longitude, latitude, 10000),
         duration: 2,
       })
     },
