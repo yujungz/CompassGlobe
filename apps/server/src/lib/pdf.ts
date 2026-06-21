@@ -245,9 +245,7 @@ export async function generateFengshuiHomePDF(res: Response, data: {
     size: 'A4', margins: { top: 50, bottom: 50, left: 60, right: 60 },
     info: { Title: '居家风水分析报告', Author: '风水地球仪' },
   })
-  const font = loadChineseFont()
-  doc.registerFont('CJK', font)
-  doc.font('CJK')
+  await registerCJKFont(doc)
 
   const filename = encodeURIComponent('居家风水分析报告.pdf')
   res.setHeader('Content-Type', 'application/pdf')
