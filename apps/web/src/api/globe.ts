@@ -43,4 +43,18 @@ export const globeApi = {
       params: { longitude, latitude },
     })
   },
+
+  // 获取附近地点（高德周边搜索）
+  getNearby(longitude: number, latitude: number) {
+    return request.get<{ places: Array<{ name: string; type: string; address: string; distance: string; direction: string; longitude?: number | null; latitude?: number | null }> }>('/globe/nearby', {
+      params: { longitude, latitude },
+    })
+  },
+
+  // 搜索地点（高德 POI 搜索）
+  searchPlace(keyword: string, longitude: number, latitude: number) {
+    return request.get<{ name: string; address: string; longitude: number | null; latitude: number | null } | null>('/globe/search-place', {
+      params: { keyword, longitude, latitude },
+    })
+  },
 }

@@ -10,20 +10,44 @@ datasource db {
 // 用户表
 model User {
   id            String   @id @default(uuid())
+  username      String   @unique
   phone         String?  @unique
   email         String?  @unique
   password      String?
+  realName      String?
   nickname      String?
+  gender        String?
+  birthYear     Int?
+  birthMonth    Int?
+  birthDay      Int?
+  birthHour     Int?
   avatar        String?
+  wechat        String?  @unique
+  qq            String?
   wechatOpenId  String?  @unique
   wechatUnionId String?
+  birthAddress  String?
+  company       String?
+  companyAddress String?
+  industry      String?
+  profession    String?
+  remark        String?
+  realNameStatus String  @default("unverified")
+  idCard        String?
   loginType     String   @default("phone")
+  registrationMethod String @default("email")
+  imageCount    Int      @default(6)
+  consultCount  Int      @default(10)
   status        Int      @default(1)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  analyses  Analysis[]
-  histories History[]
+  analyses          Analysis[]
+  histories         History[]
+  fengshuiHomes     FengshuiHome[]
+  fortuneRecords    FortuneRecord[]
+  divinationRecords DivinationRecord[]
+  conversations     Conversation[]
 
   @@map("users")
 }
@@ -59,6 +83,96 @@ model History {
 
   @@index([userId])
   @@map("histories")
+}
+
+// 居家风水记录
+model FengshuiHome {
+  id           String   @id @default(uuid())
+  userId       String
+  images       String[]
+  descriptions String[]
+  result       Json?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("fengshui_homes")
+}
+
+// 流年大运记录
+model FortuneRecord {
+  id            String   @id @default(uuid())
+  userId        String
+  name          String
+  gender        String
+  birthYear     Int
+  birthMonth    Int
+  birthDay      Int
+  birthHour     Int
+  isLunar       Boolean  @default(false)
+  birthAddress  String?
+  company       String?
+  industry      String?
+  profession    String?
+  remark        String?
+  baZi          Json?
+  zodiac        String?
+  constellation String?
+  predictYear   Int
+  result        Json?
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("fortune_records")
+}
+
+// 八卦问事记录
+model DivinationRecord {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  gender    String
+  question  String
+  hexagram  Json
+  result    Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("divination_records")
+}
+
+// AI 对话
+model Conversation {
+  id        String    @id @default(uuid())
+  userId    String
+  title     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([userId])
+  @@map("conversations")
+}
+
+// 对话消息
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  role           String
+  content        String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("messages")
 }
 
 // 管理员表

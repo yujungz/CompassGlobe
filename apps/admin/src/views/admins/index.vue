@@ -5,23 +5,55 @@ import { adminApi, type AdminInfo } from '@/api/admin'
 
 const admins = ref<AdminInfo[]>([])
 const loading = ref(false)
-
-// 创建管理员弹窗
-const createDialogVisible = ref(false)
-const createForm = ref({ username: '', password: '', nickname: '', role: 'normal' })
-
-// 修改密码弹窗
-const passwordDialogVisible = ref(false)
-const passwordForm = ref({ id: '', password: '' })
+// 第一个创建的超级管理员（按时间）
+const firstSuperId = ref('')
 
 const fetchAdmins = async () => {
   loading.value = true
   try {
     admins.value = await adminApi.getAdmins()
+    // 按时序排列，找到第一个超级管理员
+    admins.value.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    const firstSuper = admins.value.find(a => a.role === 'super')
+    firstSuperId.value = firstSuper?.id || ''
   } finally {
     loading.value = false
   }
 }
+
+// 创建管理员弹窗
+const createDialogVisible = ref(false)
+const createForm = ref({ username: '', password: '', nickname: '', role: 'normal' })
+
+// 编辑管理员弹窗
+const editDialogVisible = ref(false)
+const editForm = ref({ id: '', username: '', nickname: '', role: 'normal' })
+const editSaving = ref(false)
+
+const openEditDialog = (admin: AdminInfo) => {
+  editForm.value = { id: admin.id, username: admin.username, nickname: admin.nickname || '', role: admin.role }
+  editDialogVisible.value = true
+}
+
+const handleEdit = async () => {
+  if (!editForm.value.username.trim()) { ElMessage.warning('用户名不能为空'); return }
+  editSaving.value = true
+  try {
+    await adminApi.updateAdmin(editForm.value.id, {
+      username: editForm.value.username,
+      nickname: editForm.value.nickname || null,
+      role: editForm.value.role,
+    })
+    ElMessage.success('修改成功')
+    editDialogVisible.value = false
+    fetchAdmins()
+  } catch (e: any) { ElMessage.error(e?.response?.data?.error || '修改失败') }
+  finally { editSaving.value = false }
+}
+
+// 修改密码弹窗
+const passwordDialogVisible = ref(false)
+const passwordForm = ref({ id: '', password: '' })
 
 const handleCreate = async () => {
   if (!createForm.value.username || !createForm.value.password) {
@@ -129,8 +161,9 @@ onMounted(fetchAdmins)
       <el-table-column prop="createdAt" label="创建时间" width="180">
         <template #default="{ row }">{{ new Date(row.createdAt).toLocaleString() }}</template>
       </el-table-column>
-      <el-table-column label="操作" min-width="240">
-        <template #default="{ row }">
+      <el-table-column label="操作" min-width="320">
+        <template #default="{ row, $index }">
+          <el-button v-if="row.id !== firstSuperId" size="small" type="primary" @click="openEditDialog(row)">编辑</el-button>
           <el-button size="small" @click="openPasswordDialog(row)">修改密码</el-button>
           <el-button
             v-if="row.role !== 'super'"
@@ -174,6 +207,24 @@ onMounted(fetchAdmins)
       <template #footer>
         <el-button @click="createDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleCreate">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 编辑管理员弹窗 -->
+    <el-dialog v-model="editDialogVisible" title="编辑管理员" width="460px" destroy-on-close>
+      <el-form :model="editForm" label-width="80px">
+        <el-form-item label="用户名"><el-input v-model="editForm.username" placeholder="用户名" /></el-form-item>
+        <el-form-item label="昵称"><el-input v-model="editForm.nickname" placeholder="昵称" /></el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="editForm.role" style="width:100%">
+            <el-option label="普通管理员" value="normal" />
+            <el-option label="超级管理员" value="super" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="editSaving" @click="handleEdit">保存</el-button>
       </template>
     </el-dialog>
 

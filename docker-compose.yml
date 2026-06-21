@@ -32,6 +32,23 @@ services:
       timeout: 5s
       retries: 5
 
+  # MinIO 对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: compass-minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # 后端服务
   server:
     build:
@@ -67,13 +84,23 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
+      # MinIO
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_BUCKET=${MINIO_BUCKET:-compass}
+      - MINIO_USE_SSL=${MINIO_USE_SSL:-false}
+      - STORAGE_ROOT=/app/storage
     volumes:
-      # 和风 Ed25519 私钥只读挂载（生产用）；本地开发用 dev compose 不需要
       - ./secrets/qweather-ed25519.pem:/run/secrets/qweather_ed25519:ro
+      - storage_data:/app/storage
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   # Nginx（前端 + 后台管理 + API 代理）
@@ -94,3 +121,5 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  minio_data:
+  storage_data:

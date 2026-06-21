@@ -8,7 +8,7 @@ const router = useRouter()
 const route = useRoute()
 const { login } = useAuth()
 
-type LoginTab = 'password' | 'sms' | 'email'
+type LoginTab = 'password' | 'sms' | 'email' | 'wechat'
 const activeTab = ref<LoginTab>('password')
 const loading = ref(false)
 
@@ -45,6 +45,8 @@ const accountType = computed(() => {
   const val = passwordForm.value.account.trim()
   if (/^1[3-9]\d{9}$/.test(val)) return 'phone'
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return 'email'
+  if (/^wx_/.test(val)) return 'wechat'
+  if (val.length >= 2) return 'username'
   return 'unknown'
 })
 
@@ -52,7 +54,7 @@ const accountType = computed(() => {
 
 const handlePasswordLogin = async () => {
   if (!passwordForm.value.account) {
-    alert('请输入手机号或邮箱')
+    alert('请输入邮箱/手机号/微信号/用户名')
     return
   }
   if (!passwordForm.value.password) {
@@ -60,23 +62,17 @@ const handlePasswordLogin = async () => {
     return
   }
   if (accountType.value === 'unknown') {
-    alert('请输入正确的手机号或邮箱地址')
+    alert('请输入正确的邮箱、手机号、微信号或用户名')
     return
   }
 
   loading.value = true
   try {
-    const data: any = {
-      loginType: 'password',
+    const res = await authApi.login({
+      account: passwordForm.value.account,
       password: passwordForm.value.password,
-    }
-    if (accountType.value === 'phone') {
-      data.phone = passwordForm.value.account
-    } else {
-      data.email = passwordForm.value.account
-    }
-
-    const res = await authApi.login(data)
+      loginType: 'password',
+    })
     handleLoginSuccess(res)
   } catch (error: any) {
     alert(error.response?.data?.error || '登录失败')
@@ -254,19 +250,25 @@ const closeWechatModal = () => {
           :class="['tab', { active: activeTab === 'password' }]"
           @click="activeTab = 'password'"
         >
-          账号密码
+          密码登录
         </button>
         <button
           :class="['tab', { active: activeTab === 'sms' }]"
           @click="activeTab = 'sms'"
         >
-          手机验证码
+          短信验证码
         </button>
         <button
           :class="['tab', { active: activeTab === 'email' }]"
           @click="activeTab = 'email'"
         >
           邮箱验证码
+        </button>
+        <button
+          :class="['tab', { active: activeTab === 'wechat' }]"
+          @click="activeTab = 'wechat'; openWechatLogin()"
+        >
+          微信扫码
         </button>
       </div>
 
@@ -277,7 +279,7 @@ const closeWechatModal = () => {
             <input
               v-model="passwordForm.account"
               type="text"
-              placeholder="手机号 / 邮箱"
+              placeholder="邮箱 / 手机号 / 微信号 / 用户名"
               class="input"
             />
           </div>

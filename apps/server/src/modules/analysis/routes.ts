@@ -2,6 +2,7 @@ import { Router } from 'express'
 import prisma from '../../lib/prisma.js'
 import { authMiddleware, type AuthRequest } from '../../middlewares/auth.js'
 import { chatCompletion, isAiChatConfigured } from '../../lib/ai.js'
+import { consumeConsult } from '../../lib/consumption.js'
 import { buildFengShuiPrompt } from './prompt.js'
 
 const router: Router = Router()
@@ -26,6 +27,13 @@ router.post('/analyze', authMiddleware, async (req: AuthRequest, res) => {
   } catch (e) {
     console.error('AI 风水分析失败:', (e as Error).message)
     return res.status(502).json({ error: 'AI 分析失败，请稍后重试' })
+  }
+
+  // AI 成功后才消耗咨询次数（失败不扣）
+  try {
+    await consumeConsult(req.userId!)
+  } catch (e: any) {
+    return res.status(e.statusCode || 400).json({ error: e.message })
   }
 
   const analysis = await prisma.analysis.create({

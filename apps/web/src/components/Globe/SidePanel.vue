@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
 import { useRouter } from 'vue-router'
-import type { WeatherInfo } from '@/api/globe'
+import { globeApi, type WeatherInfo } from '@/api/globe'
 import { getBaguaDirection } from '@/utils/bagua'
+import CompassC from './Compass.vue'
+
+interface NearbyPlace { name: string; type: string; address: string; distance: string; direction: string; longitude?: number | null; latitude?: number | null }
 
 interface Location {
   longitude: number
@@ -16,15 +19,55 @@ const props = defineProps<{
   location: Location | null
   weather: WeatherInfo | null
   loading?: boolean
+  heading?: number
 }>()
+
+const emit = defineEmits<{ (e: 'flyTo', lon: number, lat: number): void }>()
 
 const router = useRouter()
 const isCollapsed = ref(false)
+const activeTab = ref<'info' | 'nearby' | 'compass'>('info')
 
 const currentTime = ref(dayjs().format('YYYY-MM-DD HH:mm:ss'))
 setInterval(() => {
   currentTime.value = dayjs().format('YYYY-MM-DD HH:mm:ss')
 }, 1000)
+
+// 附近地点
+const nearbyPlaces = ref<NearbyPlace[]>([])
+const nearbyLoading = ref(false)
+const placeKeyword = ref('')
+const placeSearching = ref(false)
+
+watch(() => props.location, async (loc) => {
+  if (loc) {
+    nearbyLoading.value = true
+    try {
+      const res = await globeApi.getNearby(loc.longitude, loc.latitude)
+      nearbyPlaces.value = res.places || []
+    } catch { nearbyPlaces.value = [] }
+    finally { nearbyLoading.value = false }
+  } else {
+    nearbyPlaces.value = []
+  }
+  placeKeyword.value = ''
+}, { immediate: true })
+
+async function searchPlace() {
+  const kw = placeKeyword.value.trim()
+  if (!kw || !props.location) return
+  placeSearching.value = true
+  try {
+    const result = await globeApi.searchPlace(kw, props.location.longitude, props.location.latitude)
+    if (result && result.longitude && result.latitude) {
+      emit('flyTo', Number(result.longitude), Number(result.latitude))
+      activeTab.value = 'info'
+    } else {
+      alert('未找到匹配的地点')
+    }
+  } catch { alert('搜索失败') }
+  finally { placeSearching.value = false }
+}
 
 const formattedLocation = computed(() => {
   if (!props.location) return null
@@ -62,6 +105,15 @@ const handleAnalyze = () => {
         <div class="time-display">{{ currentTime }}</div>
       </div>
 
+      <!-- Tab 切换 -->
+      <div v-if="formattedLocation" class="panel-tabs">
+        <button :class="['tab-btn', { active: activeTab === 'info' }]" @click="activeTab = 'info'">信息</button>
+        <button :class="['tab-btn', { active: activeTab === 'nearby' }]" @click="activeTab = 'nearby'">附近</button>
+        <button :class="['tab-btn', { active: activeTab === 'compass' }]" @click="activeTab = 'compass'">罗盘</button>
+      </div>
+
+      <!-- 信息 Tab -->
+      <template v-if="activeTab === 'info' || !formattedLocation">
       <div v-if="formattedLocation" class="panel-section">
         <h3 class="section-title">位置信息</h3>
         <div class="info-grid">
@@ -80,6 +132,10 @@ const handleAnalyze = () => {
           <div class="info-item">
             <span class="label">八卦方位</span>
             <span class="value">{{ getBaguaDirection(location?.longitude || 0) }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">相机高度</span>
+            <span class="value">{{ props.location?.cameraHeight ? (props.location.cameraHeight / 1000).toFixed(1) + ' km' : '—' }}</span>
           </div>
           <div v-if="formattedLocation.address" class="info-item info-item--full">
             <span class="label">地址</span>
@@ -120,11 +176,42 @@ const handleAnalyze = () => {
         <p v-else class="hint">暂无天气数据</p>
       </div>
 
-      <div v-if="formattedLocation" class="panel-section">
+      </template>
+
+      <!-- 附近 Tab -->
+      <template v-if="activeTab === 'nearby' && formattedLocation">
+        <div class="panel-section">
+          <h3 class="section-title">地点查询</h3>
+          <div class="search-row">
+            <input v-model="placeKeyword" class="search-input" placeholder="输入地点名称搜索…" @keydown.enter="searchPlace" />
+            <button class="search-btn" :disabled="!placeKeyword.trim() || placeSearching" @click="searchPlace">{{ placeSearching ? '…' : '搜索' }}</button>
+          </div>
+        </div>
+        <div class="panel-section">
+          <h3 class="section-title">附近地点</h3>
+          <div v-if="nearbyLoading" class="hint">搜索中…</div>
+          <div v-else-if="nearbyPlaces.length === 0" class="hint">附近暂无收录地点</div>
+          <div v-else class="nearby-list">
+            <div v-for="(p, i) in nearbyPlaces.slice(0, 8)" :key="i" class="nearby-item" @click="emit('flyTo', Number(p.longitude) || props.location?.longitude || 0, Number(p.latitude) || props.location?.latitude || 0); activeTab = 'info'">
+              <div class="nearby-left">
+                <span class="nearby-name">{{ p.name }}</span>
+                <span class="nearby-addr">{{ p.address }}</span>
+              </div>
+              <span class="nearby-info">{{ p.distance }}{{ p.direction ? ' · ' + p.direction : '' }}</span>
+            </div>
+          </div>
+        </div>
+      <!-- 罗盘 Tab -->
+      <template v-if="activeTab === 'compass'">
+        <div class="panel-section">
+          <CompassC :heading="props.heading ?? 0" />
+        </div>
+      </template>
+      </template>
+
         <button class="analyze-btn" @click="handleAnalyze">开始风水分析</button>
       </div>
     </div>
-  </div>
 </template>
 
 <style lang="scss" scoped>
@@ -270,6 +357,48 @@ const handleAnalyze = () => {
 
   &:active {
     transform: translateY(0);
+  }
+}
+.panel-tabs {
+  display: flex; gap: 4px; margin: 0 0 12px;
+  background: rgba(255,255,255,.05); border-radius: 6px; padding: 3px;
+  .tab-btn {
+    flex: 1; padding: 8px; border: none; background: transparent;
+    color: rgba(255,255,255,.5); border-radius: 4px; cursor: pointer; font-size: 13px;
+    &.active { background: rgba(74,144,217,.2); color: #fff; }
+  }
+}
+
+.search-row {
+  display: flex; gap: 6px;
+  .search-input {
+    flex: 1; padding: 8px 10px; background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12); border-radius: 6px;
+    color: #fff; font-size: 13px;
+    &::placeholder { color: rgba(255,255,255,.35); }
+    &:focus { outline: none; border-color: #4a90d9; }
+  }
+  .search-btn {
+    padding: 8px 14px; border: none; border-radius: 6px;
+    background: #4a90d9; color: #fff; font-size: 13px; cursor: pointer; white-space: nowrap;
+    &:hover:not(:disabled) { background: #357abd; }
+    &:disabled { opacity: .5; cursor: not-allowed; }
+  }
+}
+
+.nearby-list {
+  display: flex; flex-direction: column; gap: 6px;
+  .nearby-item {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,.06);
+    font-size: 13px; cursor: pointer; border-radius: 4px;
+    &:hover { background: rgba(255,255,255,.04); }
+    .nearby-left { flex: 1; min-width: 0;
+      .nearby-name { color: rgba(255,255,255,.85); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .nearby-addr { color: rgba(255,255,255,.35); font-size: 11px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+    }
+    .nearby-info { color: rgba(255,255,255,.4); font-size: 11px; white-space: nowrap; flex-shrink: 0; }
+    &:last-child { border-bottom: none; }
   }
 }
 </style>

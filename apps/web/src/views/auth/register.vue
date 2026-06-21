@@ -7,18 +7,9 @@ import { useAuth } from '@/composables'
 const router = useRouter()
 const { login } = useAuth()
 
-type RegisterTab = 'phone' | 'email'
-const activeTab = ref<RegisterTab>('phone')
+type RegisterTab = 'email' | 'phone' | 'wechat'
+const activeTab = ref<RegisterTab>('email')
 const loading = ref(false)
-
-// 手机注册
-const phoneForm = ref({
-  phone: '',
-  smsCode: '',
-  password: '',
-  confirmPassword: '',
-})
-const smsCountdown = ref(0)
 
 // 邮箱注册
 const emailForm = ref({
@@ -29,19 +20,45 @@ const emailForm = ref({
 })
 const emailCountdown = ref(0)
 
+// 手机注册
+const phoneForm = ref({
+  phone: '',
+  smsCode: '',
+  password: '',
+  confirmPassword: '',
+})
+const smsCountdown = ref(0)
+
+// 微信号注册
+const wechatForm = ref({
+  wechat: '',
+  password: '',
+  confirmPassword: '',
+})
+
 const currentPassword = computed({
-  get: () => activeTab.value === 'phone' ? phoneForm.value.password : emailForm.value.password,
+  get: () => {
+    if (activeTab.value === 'phone') return phoneForm.value.password
+    if (activeTab.value === 'email') return emailForm.value.password
+    return wechatForm.value.password
+  },
   set: (val: string) => {
     if (activeTab.value === 'phone') phoneForm.value.password = val
-    else emailForm.value.password = val
+    else if (activeTab.value === 'email') emailForm.value.password = val
+    else wechatForm.value.password = val
   },
 })
 
 const currentConfirmPassword = computed({
-  get: () => activeTab.value === 'phone' ? phoneForm.value.confirmPassword : emailForm.value.confirmPassword,
+  get: () => {
+    if (activeTab.value === 'phone') return phoneForm.value.confirmPassword
+    if (activeTab.value === 'email') return emailForm.value.confirmPassword
+    return wechatForm.value.confirmPassword
+  },
   set: (val: string) => {
     if (activeTab.value === 'phone') phoneForm.value.confirmPassword = val
-    else emailForm.value.confirmPassword = val
+    else if (activeTab.value === 'email') emailForm.value.confirmPassword = val
+    else wechatForm.value.confirmPassword = val
   },
 })
 
@@ -115,9 +132,39 @@ const handleEmailRegister = async () => {
   }
 }
 
+const handleWechatRegister = async () => {
+  if (!wechatForm.value.wechat || wechatForm.value.wechat.length < 2) {
+    alert('请输入正确的微信号')
+    return
+  }
+  if (!wechatForm.value.password || wechatForm.value.password.length < 6) {
+    alert('密码至少6位')
+    return
+  }
+  if (wechatForm.value.password !== wechatForm.value.confirmPassword) {
+    alert('两次密码不一致')
+    return
+  }
+
+  loading.value = true
+  try {
+    const res = await authApi.register({
+      wechat: wechatForm.value.wechat,
+      password: wechatForm.value.password,
+    })
+    login(res.token, res.user)
+    router.push('/')
+  } catch (error: any) {
+    alert(error.response?.data?.error || '注册失败')
+  } finally {
+    loading.value = false
+  }
+}
+
 const handleRegister = () => {
   if (activeTab.value === 'phone') handlePhoneRegister()
-  else handleEmailRegister()
+  else if (activeTab.value === 'email') handleEmailRegister()
+  else handleWechatRegister()
 }
 
 // ============ 发送验证码 ============
@@ -166,20 +213,55 @@ const startCountdown = (type: 'sms' | 'email') => {
       <!-- 注册方式 Tab -->
       <div class="register-tabs">
         <button
+          :class="['tab', { active: activeTab === 'email' }]"
+          @click="activeTab = 'email'"
+        >
+          邮箱注册
+        </button>
+        <button
           :class="['tab', { active: activeTab === 'phone' }]"
           @click="activeTab = 'phone'"
         >
           手机注册
         </button>
         <button
-          :class="['tab', { active: activeTab === 'email' }]"
-          @click="activeTab = 'email'"
+          :class="['tab', { active: activeTab === 'wechat' }]"
+          @click="activeTab = 'wechat'"
         >
-          邮箱注册
+          微信注册
         </button>
       </div>
 
       <form class="register-form" @submit.prevent="handleRegister">
+        <!-- 邮箱注册 -->
+        <template v-if="activeTab === 'email'">
+          <div class="form-item">
+            <input
+              v-model="emailForm.email"
+              type="email"
+              placeholder="邮箱地址"
+              class="input"
+            />
+          </div>
+          <div class="form-item code-item">
+            <input
+              v-model="emailForm.emailCode"
+              type="text"
+              placeholder="邮箱验证码"
+              maxlength="6"
+              class="input"
+            />
+            <button
+              type="button"
+              class="code-btn"
+              :disabled="emailCountdown > 0"
+              @click="handleSendEmail"
+            >
+              {{ emailCountdown > 0 ? `${emailCountdown}s` : '获取验证码' }}
+            </button>
+          </div>
+        </template>
+
         <!-- 手机注册 -->
         <template v-if="activeTab === 'phone'">
           <div class="form-item">
@@ -210,32 +292,16 @@ const startCountdown = (type: 'sms' | 'email') => {
           </div>
         </template>
 
-        <!-- 邮箱注册 -->
-        <template v-if="activeTab === 'email'">
+        <!-- 微信注册 -->
+        <template v-if="activeTab === 'wechat'">
           <div class="form-item">
             <input
-              v-model="emailForm.email"
-              type="email"
-              placeholder="邮箱地址"
-              class="input"
-            />
-          </div>
-          <div class="form-item code-item">
-            <input
-              v-model="emailForm.emailCode"
+              v-model="wechatForm.wechat"
               type="text"
-              placeholder="邮箱验证码"
-              maxlength="6"
+              placeholder="微信号"
+              maxlength="30"
               class="input"
             />
-            <button
-              type="button"
-              class="code-btn"
-              :disabled="emailCountdown > 0"
-              @click="handleSendEmail"
-            >
-              {{ emailCountdown > 0 ? `${emailCountdown}s` : '获取验证码' }}
-            </button>
           </div>
         </template>
 

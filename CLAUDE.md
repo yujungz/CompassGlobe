@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Backend**: Node.js + Express + TypeScript + Prisma
 - **Database**: PostgreSQL + PostGIS
 - **Cache**: Redis
+- **Storage**: MinIO 对象存储（备选）/ 本地命名卷
 - **AI**: GLM-5
 - **Maps**: 天地图 + 高德地图
 - **Email**: QQ邮箱 SMTP
@@ -48,6 +49,7 @@ compass/
 | compass-server | Node.js 后端 API | 3001 |
 | compass-postgres | PostgreSQL 数据库 | 5432 |
 | compass-redis | Redis 缓存 | 6379 |
+| compass-minio | MinIO 对象存储 | 9000 (API), 9001 (Console) |
 
 ### 开发环境
 
@@ -148,7 +150,21 @@ docker exec compass-server npx prisma studio
 - 邮箱 + 验证码（QQ邮箱 SMTP）
 - 微信扫码登录（模拟，UI 已完成）
 
+## Storage Architecture
+
+文件存储使用 `lib/storage.ts` 抽象层，提供统一的 put/get/list/remove API：
+- **当前实现**：本地文件系统（Docker named volume `storage_data` 持久化）
+- **切换 MinIO**：替换 `lib/storage.ts` 实现即可，其它模块无需改动
+- **访问路径**：`/api/storage/:key` → 后端代理读取文件
+- **存储布局**：
+  - `fengshui-home/{userId}/{timestamp}/` — 居家风水图片
+  - `ai-gen/{userId}/` — 文生图
+  - `ai-edit/{userId}/` — 修图
+
 ## API Endpoints
+
+### Storage
+- `GET /api/storage/:key` — 获取存储的文件（通过后端代理）
 
 ### Auth
 - `POST /api/auth/register` - 注册（手机/邮箱）

@@ -34,6 +34,25 @@ services:
       timeout: 5s
       retries: 5
 
+  # MinIO 对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: compass-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # 后端服务（挂载源码，热重载）
   server:
     build:
@@ -47,13 +66,20 @@ services:
       - NODE_ENV=development
       - PORT=3001
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/compass?schema=public
-      # 覆盖 .env 的宿主路径，改用容器内挂载路径（与生产统一）
       - QWEATHER_PRIVATE_KEY_PATH=/run/secrets/qweather_ed25519
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=compass
+      - MINIO_USE_SSL=false
+      - STORAGE_ROOT=/app/storage
+      - AMAP_KEY=82f312a45f750e9962fff34d82421215
     volumes:
       - ./apps/server/src:/app/apps/server/src
       - ./apps/server/prisma:/app/apps/server/prisma
-      # 和风 Ed25519 私钥（需先把私钥放到 secrets/qweather-ed25519.pem）
       - ./secrets/qweather-ed25519.pem:/run/secrets/qweather_ed25519:ro
+      - storage_data:/app/storage
     ports:
       - "3001:3001"
     command: sh -c "npx prisma generate && npx tsx watch src/index.ts"
@@ -63,6 +89,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
 
   # Nginx 开发代理
   nginx:
@@ -70,6 +98,8 @@ services:
     container_name: compass-nginx
     volumes:
       - ./docker/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      - ./apps/web/dist:/usr/share/nginx/html/front
+      - ./apps/admin/dist:/usr/share/nginx/html/back
     ports:
       - "8110:80"
     extra_hosts:
@@ -80,3 +110,5 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  minio_data:
+  storage_data:

@@ -5,6 +5,49 @@ import fs from 'node:fs'
 
 const router: Router = Router()
 
+// GCJ-02 → WGS-84 坐标转换（高德/天地图 → Cesium）
+// 算法来源: https://github.com/wandergis/coordTransform
+const PI = Math.PI
+const X_PI = (PI * 3000.0) / 180.0
+const A = 6378245.0 // 长半轴
+const EE = 0.00669342162296594323 // 扁率
+
+function transformLat(x: number, y: number): number {
+  let ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x))
+  ret += ((20.0 * Math.sin(6.0 * x * PI) + 20.0 * Math.sin(2.0 * x * PI)) * 2.0) / 3.0
+  ret += ((20.0 * Math.sin(y * PI) + 40.0 * Math.sin((y / 3.0) * PI)) * 2.0) / 3.0
+  ret += ((160.0 * Math.sin((y / 12.0) * PI) + 320.0 * Math.sin((y * PI) / 30.0)) * 2.0) / 3.0
+  return ret
+}
+
+function transformLon(x: number, y: number): number {
+  let ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x))
+  ret += ((20.0 * Math.sin(6.0 * x * PI) + 20.0 * Math.sin(2.0 * x * PI)) * 2.0) / 3.0
+  ret += ((20.0 * Math.sin(x * PI) + 40.0 * Math.sin((x / 3.0) * PI)) * 2.0) / 3.0
+  ret += ((150.0 * Math.sin((x / 12.0) * PI) + 300.0 * Math.sin((x / 30.0) * PI)) * 2.0) / 3.0
+  return ret
+}
+
+function outOfChina(lng: number, lat: number): boolean {
+  return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271
+}
+
+/** GCJ-02 → WGS-84 精确转换（迭代法） */
+function gcj02ToWgs84(gcjLng: number, gcjLat: number): { lng: number; lat: number } {
+  if (outOfChina(gcjLng, gcjLat)) return { lng: gcjLng, lat: gcjLat }
+
+  let dLng = transformLon(gcjLng - 105.0, gcjLat - 35.0)
+  let dLat = transformLat(gcjLng - 105.0, gcjLat - 35.0)
+  const radLat = (gcjLat / 180.0) * PI
+  let magic = Math.sin(radLat)
+  magic = 1 - EE * magic * magic
+  const sqrtMagic = Math.sqrt(magic)
+  dLng = (dLng * 180.0) / ((A / sqrtMagic) * Math.cos(radLat) * PI)
+  dLat = (dLat * 180.0) / ((A * (1 - EE)) / (magic * sqrtMagic) * PI)
+
+  return { lng: gcjLng - dLng, lat: gcjLat - dLat }
+}
+
 const TDT_KEY = process.env.TDT_KEY || ''
 const AMAP_KEY = process.env.AMAP_KEY || ''
 
@@ -86,6 +129,92 @@ router.get('/location', async (req, res) => {
       timezone: 'UTC+8',
       address: '',
     })
+  }
+})
+
+// 搜索附近地点（高德周边搜索）
+router.get('/nearby', async (req, res) => {
+  const { longitude, latitude } = req.query
+  if (!longitude || !latitude) return res.status(400).json({ error: '缺少经纬度参数' })
+
+  try {
+    if (!AMAP_KEY) return res.json({ places: [] })
+    const response = await axios.get('https://restapi.amap.com/v3/place/around', {
+      params: {
+        key: AMAP_KEY,
+        location: `${longitude},${latitude}`,
+        radius: 3000,
+        offset: 10,
+        page: 1,
+        extensions: 'base',
+      },
+      timeout: 5000,
+    })
+    const pois = response.data?.pois || []
+    res.json({
+      places: pois.map((p: any) => {
+        const gLng = parseFloat(p.location?.split(',')[0] || '0')
+        const gLat = parseFloat(p.location?.split(',')[1] || '0')
+        const wgs = gcj02ToWgs84(gLng, gLat)
+        return {
+          name: p.name,
+          type: p.type?.split(';')[0] || '',
+          address: p.address,
+          distance: p.distance ? `${p.distance}m` : '',
+          direction: p.direction || '',
+          longitude: wgs.lng,
+          latitude: wgs.lat,
+        }
+      }),
+    })
+  } catch {
+    res.json({ places: [] })
+  }
+})
+
+// 搜索地点（高德周边 POI 搜索，基于当前中心点半径内精确匹配）
+router.get('/search-place', async (req, res) => {
+  const { keyword, longitude, latitude } = req.query
+  if (!keyword || !longitude || !latitude) return res.status(400).json({ error: '缺少参数' })
+
+  try {
+    if (!AMAP_KEY) return res.json(null)
+    // 先用逆地理编码获取城市名
+    let city = ''
+    try {
+      const geoResp = await axios.get('https://restapi.amap.com/v3/geocode/regeo', {
+        params: { key: AMAP_KEY, location: `${longitude},${latitude}`, extensions: 'base' },
+        timeout: 3000,
+      })
+      city = geoResp.data?.regeocode?.addressComponent?.city || ''
+      if (!city) city = geoResp.data?.regeocode?.addressComponent?.province || ''
+    } catch { /* ignore */ }
+
+    // 用 text 搜索 + city 限制范围
+    const response = await axios.get('https://restapi.amap.com/v3/place/text', {
+      params: {
+        key: AMAP_KEY,
+        keywords: keyword,
+        city: city || undefined,
+        citylimit: city ? 'true' : undefined,
+        location: `${longitude},${latitude}`,
+        sortrule: 'distance',
+        offset: 1,
+        page: 1,
+      },
+      timeout: 5000,
+    })
+    const poi = response.data?.pois?.[0] || null
+    if (poi) {
+      const gLng = parseFloat(poi.location?.split(',')[0] || '0')
+      const gLat = parseFloat(poi.location?.split(',')[1] || '0')
+      const wgs = gcj02ToWgs84(gLng, gLat)
+      res.json({ name: poi.name, address: poi.address, longitude: wgs.lng, latitude: wgs.lat })
+    } else {
+      res.json(null)
+    }
+  } catch {
+    res.json(null)
   }
 })
 

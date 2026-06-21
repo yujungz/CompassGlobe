@@ -39,6 +39,24 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '管理员管理', requireSuper: true },
       },
       {
+        path: 'fengshui-homes',
+        name: 'FengshuiHomes',
+        component: () => import('@/views/fengshui-homes/index.vue'),
+        meta: { title: '居家风水' },
+      },
+      {
+        path: 'fortunes',
+        name: 'Fortunes',
+        component: () => import('@/views/fortunes/index.vue'),
+        meta: { title: '流年大运' },
+      },
+      {
+        path: 'divinations',
+        name: 'Divinations',
+        component: () => import('@/views/divinations/index.vue'),
+        meta: { title: '八卦问事' },
+      },
+      {
         path: 'config',
         name: 'Config',
         component: () => import('@/views/config/index.vue'),

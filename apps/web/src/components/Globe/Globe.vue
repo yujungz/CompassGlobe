@@ -14,6 +14,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   locationSelect: [location: { longitude: number; latitude: number; altitude: number }]
+  cameraUpdate: [height: number, heading: number]
 }>()
 
 const cesiumContainer = ref<HTMLDivElement>()
@@ -21,6 +22,45 @@ const viewer = shallowRef<Cesium.Viewer>()
 
 const locating = ref(false)
 const locationMsg = ref('')
+
+// 定位按钮拖动
+const savedPos = localStorage.getItem('locate-btn-pos')
+const btnLeft = ref(savedPos ? parseFloat(savedPos.split(',')[0]) : 0)
+const btnBottom = ref(savedPos ? parseFloat(savedPos.split(',')[1]) : 100)
+const dragging = ref(false)
+const dragStart = ref({ x: 0, y: 0, btnLeft: 0, btnBottom: 0 })
+
+function onDragStart(e: PointerEvent) {
+  if (locating.value) return
+  dragging.value = true
+  ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  dragStart.value = { x: e.clientX, y: e.clientY, btnLeft: btnLeft.value, btnBottom: btnBottom.value }
+}
+
+function onDragMove(e: PointerEvent) {
+  if (!dragging.value) return
+  const dx = e.clientX - dragStart.value.x
+  const dy = dragStart.value.y - e.clientY
+  btnLeft.value = Math.max(0, dragStart.value.btnLeft + dx)
+  btnBottom.value = Math.max(0, Math.min(window.innerHeight - 100, dragStart.value.btnBottom + dy))
+}
+
+function onDragEnd() {
+  if (!dragging.value) return
+  dragging.value = false
+  localStorage.setItem('locate-btn-pos', `${btnLeft.value},${btnBottom.value}`)
+}
+
+const MIN_HEIGHT = 100    // 最小高度 0.1km
+const MAX_HEIGHT = 20000000 // 最大高度 20000km
+
+function getCameraHeight(): number {
+  if (!viewer.value) return 0
+  return Cesium.Cartographic.fromCartesian(
+    viewer.value.camera.position,
+    Cesium.Ellipsoid.WGS84
+  ).height
+}
 let msgTimer: ReturnType<typeof setTimeout> | null = null
 
 // 展示一条短暂提示（4 秒后自动消失）
@@ -104,6 +144,17 @@ const initCesium = async () => {
     destination: Cesium.Cartesian3.fromDegrees(initialView.longitude, initialView.latitude, initialView.height),
   })
 
+  // 缩放限制（Cesium 原生控制，不会导致视图异常）
+  if (viewer.value.scene.screenSpaceCameraController) {
+    viewer.value.scene.screenSpaceCameraController.minimumZoomDistance = MIN_HEIGHT
+    viewer.value.scene.screenSpaceCameraController.maximumZoomDistance = MAX_HEIGHT
+  }
+
+  // 相机高度 + 朝向实时更新
+  viewer.value.camera.changed.addEventListener(() => {
+    emit('cameraUpdate', getCameraHeight(), Cesium.Math.toDegrees(viewer.value!.camera.heading))
+  })
+
   // 点击事件
   const handler = new Cesium.ScreenSpaceEventHandler(viewer.value.scene.canvas)
   handler.setInputAction((event: Cesium.ScreenSpaceEventHandler.PositionedEvent) => {
@@ -150,20 +201,41 @@ const locateCurrentPosition = () => {
   )
 }
 
+function flyTo(longitude: number, latitude: number) {
+  if (!viewer.value) return
+  viewer.value.entities.removeAll()
+  viewer.value.entities.add({
+    position: Cesium.Cartesian3.fromDegrees(longitude, latitude, 0),
+    point: { pixelSize: 10, color: Cesium.Color.RED, outlineColor: Cesium.Color.WHITE, outlineWidth: 2 },
+  })
+  const currentHeight = getCameraHeight()
+  const height = Math.min(currentHeight, 5000)
+  viewer.value.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(longitude, latitude, height),
+    duration: 2,
+  })
+}
+
 defineExpose({
   locateCurrentPosition,
+  flyTo,
+  getCameraHeight,
 })
 </script>
 
 <template>
   <div class="globe">
     <div ref="cesiumContainer" class="cesium-container"></div>
-    <div class="globe-controls">
+    <div class="globe-controls" :style="{ left: btnLeft + 'px', bottom: btnBottom + 'px' }">
       <button
         class="control-btn"
         :disabled="locating"
-        :title="locating ? '定位中…' : '定位当前位置'"
-        @click="locateCurrentPosition"
+        :title="locating ? '定位中…' : '定位当前位置（可拖动，双击定位）'"
+        @dblclick="locateCurrentPosition"
+        @pointerdown="onDragStart"
+        @pointermove="onDragMove"
+        @pointerup="onDragEnd"
+        @pointercancel="onDragEnd"
       >
         {{ locating ? '⏳' : '📍' }}
       </button>
@@ -185,7 +257,7 @@ defineExpose({
 
   &-controls {
     position: absolute;
-    right: 16px;
+    left: 16px;
     bottom: 100px;
     display: flex;
     flex-direction: column;
@@ -200,9 +272,13 @@ defineExpose({
       background: rgba(255, 255, 255, 0.9);
       border: none;
       font-size: 20px;
-      cursor: pointer;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
       transition: all 0.2s;
+
+      &:active { cursor: grabbing; }
 
       &:hover:not(:disabled) {
         background: #fff;

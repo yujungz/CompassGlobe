@@ -36,8 +36,10 @@ const toggleMenu = () => {
     <!-- Desktop Navigation -->
     <nav class="navbar-center hidden-mobile">
       <router-link to="/" class="nav-link">首页</router-link>
-      <router-link v-if="isLoggedIn" to="/analysis" class="nav-link">风水分析</router-link>
-      <router-link v-if="isLoggedIn" to="/history" class="nav-link">历史记录</router-link>
+      <router-link v-if="isLoggedIn" to="/analysis" class="nav-link">地理分析</router-link>
+      <router-link v-if="isLoggedIn" to="/fengshui-home" class="nav-link">居家风水</router-link>
+      <router-link v-if="isLoggedIn" to="/fortune" class="nav-link">流年大运</router-link>
+      <router-link v-if="isLoggedIn" to="/divination" class="nav-link">八卦问事</router-link>
       <router-link v-if="isLoggedIn" to="/ai" class="nav-link">AI 创作</router-link>
     </nav>
 
@@ -61,10 +63,16 @@ const toggleMenu = () => {
     <div v-if="menuVisible && isMobile" class="mobile-menu">
       <router-link to="/" class="mobile-nav-link" @click="menuVisible = false">首页</router-link>
       <router-link v-if="isLoggedIn" to="/analysis" class="mobile-nav-link" @click="menuVisible = false">
-        风水分析
+        地理分析
       </router-link>
-      <router-link v-if="isLoggedIn" to="/history" class="mobile-nav-link" @click="menuVisible = false">
-        历史记录
+      <router-link v-if="isLoggedIn" to="/fengshui-home" class="mobile-nav-link" @click="menuVisible = false">
+        居家风水
+      </router-link>
+      <router-link v-if="isLoggedIn" to="/fortune" class="mobile-nav-link" @click="menuVisible = false">
+        流年大运
+      </router-link>
+      <router-link v-if="isLoggedIn" to="/divination" class="mobile-nav-link" @click="menuVisible = false">
+        八卦问事
       </router-link>
       <router-link v-if="isLoggedIn" to="/ai" class="mobile-nav-link" @click="menuVisible = false">
         AI 创作

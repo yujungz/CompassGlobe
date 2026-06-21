@@ -3,7 +3,7 @@
 # ========================================
 FROM node:20-slim AS server-deps
 
-RUN apt-get update -y && apt-get install -y openssl
+RUN apt-get update -y && apt-get install -y openssl fonts-noto-cjk
 
 WORKDIR /app
 
@@ -78,7 +78,7 @@ RUN npx vite build
 # ========================================
 FROM node:20-slim AS server-production
 
-RUN apt-get update -y && apt-get install -y openssl
+RUN apt-get update -y && apt-get install -y openssl fonts-noto-cjk
 
 WORKDIR /app
 

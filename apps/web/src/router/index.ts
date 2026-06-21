@@ -32,11 +32,28 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/analysis/index.vue'),
     meta: { title: '风水分析', requiresAuth: true },
   },
+  // /history 重定向到地理分析页（历史已合并）
   {
     path: '/history',
-    name: 'History',
-    component: () => import('@/views/history/index.vue'),
-    meta: { title: '历史记录', requiresAuth: true },
+    redirect: '/analysis',
+  },
+  {
+    path: '/fengshui-home',
+    name: 'FengshuiHome',
+    component: () => import('@/views/fengshui-home/index.vue'),
+    meta: { title: '居家风水', requiresAuth: true },
+  },
+  {
+    path: '/fortune',
+    name: 'Fortune',
+    component: () => import('@/views/fortune/index.vue'),
+    meta: { title: '流年大运', requiresAuth: true },
+  },
+  {
+    path: '/divination',
+    name: 'Divination',
+    component: () => import('@/views/divination/index.vue'),
+    meta: { title: '八卦问事', requiresAuth: true },
   },
   {
     path: '/ai',

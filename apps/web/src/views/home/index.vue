@@ -13,15 +13,31 @@ interface SelectedLocation {
   latitude: number
   altitude: number | null
   address?: string
+  cameraHeight?: number
 }
 
 const selectedLocation = ref<SelectedLocation | null>(null)
 const weather = ref<WeatherInfo | null>(null)
 const loading = ref(false)
+const globeRef = ref<InstanceType<typeof Globe>>()
+const liveCameraHeight = ref(0)
+const cameraHeading = ref(0)
 
-// 选点后并行拉取海拔 / 天气 / 地址（真实海拔覆盖点击占位的 0）
+// SidePanel 附近地点 → 地球仪飞过去
+const handleFlyTo = async (lon: number, lat: number) => {
+  globeRef.value?.flyTo(lon, lat)
+  await handleLocationSelect({ longitude: lon, latitude: lat, altitude: 0 })
+}
+
+const handleCameraUpdate = (height: number, heading: number) => {
+  liveCameraHeight.value = height
+  cameraHeading.value = heading
+  if (selectedLocation.value) selectedLocation.value.cameraHeight = height
+}
+
+// 选点后并行拉取海拔 / 天气 / 地址
 const handleLocationSelect = async (loc: { longitude: number; latitude: number; altitude: number }) => {
-  selectedLocation.value = { longitude: loc.longitude, latitude: loc.latitude, altitude: null }
+  selectedLocation.value = { longitude: loc.longitude, latitude: loc.latitude, altitude: null, cameraHeight: liveCameraHeight.value }
   weather.value = null
   loading.value = true
 
@@ -56,8 +72,8 @@ const handleLocationSelect = async (loc: { longitude: number; latitude: number; 
   <div class="home">
     <NavBar />
     <div class="home-content">
-      <Globe @location-select="handleLocationSelect" />
-      <SidePanel :location="selectedLocation" :weather="weather" :loading="loading" />
+      <Globe ref="globeRef" @location-select="handleLocationSelect" @camera-update="handleCameraUpdate" />
+      <SidePanel :location="selectedLocation" :weather="weather" :loading="loading" :heading="cameraHeading" @fly-to="handleFlyTo" />
     </div>
   </div>
 </template>

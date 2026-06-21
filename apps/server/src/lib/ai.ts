@@ -4,7 +4,13 @@
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
-  content: string
+  content: string | ChatContentPart[]
+}
+
+export interface ChatContentPart {
+  type: 'text' | 'image_url'
+  text?: string
+  image_url?: { url: string; detail?: 'low' | 'high' | 'auto' }
 }
 
 export interface GeneratedImage {
