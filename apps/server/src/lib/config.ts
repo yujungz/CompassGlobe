@@ -25,15 +25,17 @@ async function loadCache(): Promise<void> {
   cacheLoaded = true
 }
 
-/** 获取单个配置值: DB 优先，回退 env */
+/** 获取单个配置值: DB 优先，回退 env（过滤占位符） */
 export async function getConfig(dbKey: string, envFallback: string): Promise<string> {
   await loadCache()
-  // dbKey 格式: "section.field", 如 "aiModel.AI_CHAT_URL"
   const [section, field] = dbKey.split('.')
-  if (cache?.[section]?.[field]) {
-    return cache[section][field]
-  }
-  return process.env[envFallback] || ''
+  // DB 值优先（过滤占位符）
+  const dbVal = cache?.[section]?.[field]
+  if (dbVal && !String(dbVal).startsWith('your-') && dbVal !== '') return dbVal
+  // 回退 env（过滤占位符）
+  const envVal = process.env[envFallback] || ''
+  if (envVal.startsWith('your-')) return ''
+  return envVal
 }
 
 /** 后台保存配置后调用，刷新对应 section 的缓存 */
