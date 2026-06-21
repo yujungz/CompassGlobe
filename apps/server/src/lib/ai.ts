@@ -87,10 +87,19 @@ export const chatCompletion = async (
     },
     options?.timeoutMs ?? 60000
   )
-  const data = (await resp.json()) as ChatResponse
-  const content = data.choices?.[0]?.message?.content
+  const data = (await resp.json()) as any
+  // 兼容两种格式：OpenAI (choices[0].message.content) 和 Anthropic (content[])
+  let content: string | undefined
+  if (data.choices?.[0]?.message?.content) {
+    content = data.choices[0].message.content
+  } else if (Array.isArray(data.content)) {
+    content = data.content
+      .filter((c: any) => c.type === 'text' || c.type === 'thinking')
+      .map((c: any) => c.text || c.thinking || '')
+      .join('\n')
+  }
   if (!resp.ok || !content) {
-    const detail = (data as any).error?.message || JSON.stringify(data).slice(0, 300)
+    const detail = data.error?.message || JSON.stringify(data).slice(0, 300)
     throw new Error(`AI 对话失败: HTTP ${resp.status} — ${detail}`)
   }
   return content
