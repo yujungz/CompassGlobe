@@ -41,12 +41,13 @@ function onDragStart(e: PointerEvent) {
 
 function onDragMove(e: PointerEvent) {
   if (!dragging.value) return
-  // 累计移动距离
   if (Math.abs(e.clientX - dragStartPos.value.x) > 10 || Math.abs(e.clientY - dragStartPos.value.y) > 10) {
     pointerMoved.value = true
   }
-  btnLeft.value = Math.max(0, btnLeft.value + (dragStartPos.value.x - e.clientX))
-  btnBottom.value = Math.max(0, btnBottom.value - (dragStartPos.value.y - e.clientY))
+  const dx = e.clientX - dragStartPos.value.x
+  const dy = e.clientY - dragStartPos.value.y
+  btnLeft.value = Math.max(0, btnLeft.value - dx)
+  btnBottom.value = Math.max(0, btnBottom.value - dy)
   dragStartPos.value.x = e.clientX
   dragStartPos.value.y = e.clientY
 }
