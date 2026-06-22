@@ -436,6 +436,7 @@ function handleLogout() {
         <div class="section-header"><h3>账号操作</h3></div>
         <div class="action-list">
           <button class="action-btn" @click="showPasswordDialog = true">修改密码</button>
+          <button class="action-btn" @click="router.push('/')">返回首页</button>
           <button class="action-btn danger" @click="handleLogout">退出登录</button>
         </div>
       </div>
