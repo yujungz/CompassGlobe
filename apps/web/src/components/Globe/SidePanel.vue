@@ -89,6 +89,8 @@ const handleAnalyze = () => {
         alt: props.location.altitude,
       },
     })
+  } else {
+    alert('请在地图上选择地点或点击定位图标')
   }
 }
 </script>
