@@ -7,6 +7,7 @@ const router = useRouter()
 const { isLoggedIn, logout } = useAuth()
 
 const isMobile = ref(window.innerWidth < 768)
+const helpOpen = ref(false)
 
 window.addEventListener('resize', () => {
   isMobile.value = window.innerWidth < 768
@@ -21,6 +22,18 @@ const handleLogout = () => {
 
 const toggleMenu = () => {
   menuVisible.value = !menuVisible.value
+}
+
+function showAbout() {
+  helpOpen.value = false
+  menuVisible.value = false
+  alert('公司：广州市双鱼文化科技有限公司\n联系方式：18011749867@163.com')
+}
+
+function showUsage() {
+  helpOpen.value = false
+  menuVisible.value = false
+  alert('使用说明\n\n1. 点击地球选择地点，查看位置、天气信息\n2. 使用「地理分析」进行风水分析\n3. 上传室内照片进行「居家风水」分析\n4. 输入出生信息查看「流年大运」\n5. 默想问题后「起卦」进行八卦问事\n6. AI 创作支持文生图、修图和对话')
 }
 </script>
 
@@ -41,6 +54,13 @@ const toggleMenu = () => {
       <router-link v-if="isLoggedIn" to="/fortune" class="nav-link">流年大运</router-link>
       <router-link v-if="isLoggedIn" to="/divination" class="nav-link">八卦问事</router-link>
       <router-link v-if="isLoggedIn" to="/ai" class="nav-link">AI 创作</router-link>
+      <div class="nav-help" @mouseenter="helpOpen = true" @mouseleave="helpOpen = false">
+        <span class="nav-link help-trigger">帮助</span>
+        <div v-if="helpOpen" class="help-dropdown">
+          <button class="help-item" @click="showUsage">使用说明</button>
+          <button class="help-item" @click="showAbout">关于我们</button>
+        </div>
+      </div>
     </nav>
 
     <div class="navbar-right hidden-mobile">
@@ -85,6 +105,9 @@ const toggleMenu = () => {
         <router-link to="/login" class="mobile-nav-link" @click="menuVisible = false">登录</router-link>
         <router-link to="/register" class="mobile-nav-link" @click="menuVisible = false">注册</router-link>
       </template>
+      <div class="mobile-divider"></div>
+      <button class="mobile-nav-link" @click="showUsage">使用说明</button>
+      <button class="mobile-nav-link" @click="showAbout">关于我们</button>
     </div>
   </header>
 </template>
@@ -199,6 +222,48 @@ const toggleMenu = () => {
     height: 24px;
     line-height: 24px;
   }
+}
+
+.nav-help {
+  position: relative;
+  cursor: pointer;
+
+  .help-trigger { user-select: none; }
+
+  .help-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a1a2e;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 6px;
+    padding: 4px;
+    min-width: 100px;
+    z-index: 200;
+
+    .help-item {
+      display: block;
+      width: 100%;
+      padding: 8px 16px;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,.8);
+      font-size: 13px;
+      text-align: left;
+      cursor: pointer;
+      border-radius: 4px;
+      white-space: nowrap;
+
+      &:hover { background: rgba(255,255,255,.1); color: #fff; }
+    }
+  }
+}
+
+.mobile-divider {
+  height: 1px;
+  background: rgba(255,255,255,.1);
+  margin: 8px 0;
 }
 
 .mobile-menu {
