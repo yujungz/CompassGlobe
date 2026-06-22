@@ -244,85 +244,7 @@ const closeWechatModal = () => {
     <div class="login-card">
       <h1 class="title">登录</h1>
 
-      <!-- 登录方式 Tab -->
-      <div class="login-tabs">
-        <button
-          :class="['tab', { active: activeTab === 'password' }]"
-          @click="activeTab = 'password'"
-        >
-          密码登录
-        </button>
-        <button
-          :class="['tab', { active: activeTab === 'sms' }]"
-          @click="activeTab = 'sms'"
-        >
-          短信验证码
-        </button>
-        <button
-          :class="['tab', { active: activeTab === 'email' }]"
-          @click="activeTab = 'email'"
-        >
-          邮箱验证码
-        </button>
-        <button
-          :class="['tab', { active: activeTab === 'wechat' }]"
-          @click="activeTab = 'wechat'; openWechatLogin()"
-        >
-          微信扫码
-        </button>
-      </div>
-
       <form class="login-form" @submit.prevent="handleLogin">
-        <!-- 账号密码登录 -->
-        <template v-if="activeTab === 'password'">
-          <div class="form-item">
-            <input
-              v-model="passwordForm.account"
-              type="text"
-              placeholder="邮箱 / 手机号 / 微信号 / 用户名"
-              class="input"
-            />
-          </div>
-          <div class="form-item">
-            <input
-              v-model="passwordForm.password"
-              type="password"
-              placeholder="密码"
-              class="input"
-            />
-          </div>
-        </template>
-
-        <!-- 手机验证码登录 -->
-        <template v-if="activeTab === 'sms'">
-          <div class="form-item">
-            <input
-              v-model="smsForm.phone"
-              type="tel"
-              placeholder="手机号"
-              maxlength="11"
-              class="input"
-            />
-          </div>
-          <div class="form-item sms-item">
-            <input
-              v-model="smsForm.smsCode"
-              type="text"
-              placeholder="验证码"
-              maxlength="6"
-              class="input"
-            />
-            <button
-              type="button"
-              class="code-btn"
-              :disabled="smsCountdown > 0"
-              @click="handleSendSms"
-            >
-              {{ smsCountdown > 0 ? `${smsCountdown}s` : '获取验证码' }}
-            </button>
-          </div>
-        </template>
-
         <!-- 邮箱验证码登录 -->
         <template v-if="activeTab === 'email'">
           <div class="form-item">
@@ -356,20 +278,6 @@ const closeWechatModal = () => {
           {{ loading ? '登录中...' : '登录' }}
         </button>
       </form>
-
-      <!-- 其他登录方式 -->
-      <div class="divider">
-        <span>其他登录方式</span>
-      </div>
-
-      <div class="social-login">
-        <button class="wechat-btn" @click="openWechatLogin">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="#07c160">
-            <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05a6.373 6.373 0 0 1-.248-1.753c0-3.694 3.452-6.692 7.706-6.692.253 0 .502.014.749.034C17.311 4.706 13.34 2.188 8.691 2.188zm-2.5 5.5c-.544 0-.984-.44-.984-.983a.983.983 0 1 1 1.967 0c0 .544-.44.983-.983.983zm5.5 0c-.543 0-.983-.44-.983-.983a.983.983 0 1 1 1.967 0c0 .544-.44.983-.984.983zm5.367 3.908c-3.652 0-6.615 2.472-6.615 5.517S13.706 22.63 17.058 22.63c.8 0 1.567-.118 2.283-.329a.722.722 0 0 1 .577.078l1.532.897a.262.262 0 0 0 .134.043.237.237 0 0 0 .233-.237c0-.058-.023-.115-.039-.171l-.314-1.19a.475.475 0 0 1 .171-.535C23.233 19.902 24 18.197 24 16.313c0-3.045-2.963-5.517-6.615-5.517h-.327zm-2.62 3.376a.82.82 0 1 1 0 1.64.82.82 0 0 1 0-1.64zm5.24 0a.82.82 0 1 1 0 1.64.82.82 0 0 1 0-1.64z"/>
-          </svg>
-          <span>微信登录</span>
-        </button>
-      </div>
 
       <div class="footer-links">
         <router-link to="/register" class="link">没有账号？去注册</router-link>
