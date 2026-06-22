@@ -6,7 +6,8 @@ import NavBar from '@/components/common/NavBar.vue'
 import SidePanel from '@/components/Globe/SidePanel.vue'
 import { globeApi, type WeatherInfo } from '@/api/globe'
 
-import { ref } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { getBaguaDirection } from '@/utils/bagua'
 
 interface SelectedLocation {
   longitude: number
@@ -22,6 +23,20 @@ const loading = ref(false)
 const globeRef = ref<InstanceType<typeof Globe>>()
 const liveCameraHeight = ref(0)
 const cameraHeading = ref(0)
+
+// 移动端检测
+const windowWidth = ref(window.innerWidth)
+function onResize() { windowWidth.value = window.innerWidth }
+onMounted(() => window.addEventListener('resize', onResize))
+onUnmounted(() => window.removeEventListener('resize', onResize))
+const isMobile = computed(() => windowWidth.value < 768)
+
+// 当前朝向对应的二十四山
+const currentShan = computed(() => {
+  const h = ((cameraHeading.value % 360) + 360) % 360
+  const names = ['子','癸','丑','艮','寅','甲','卯','乙','辰','巽','巳','丙','午','丁','未','坤','申','庚','酉','辛','戌','乾','亥','壬']
+  return names[Math.round(h / 15) % 24]
+})
 
 // SidePanel 附近地点 → 地球仪飞过去
 const handleFlyTo = async (lon: number, lat: number) => {
@@ -74,6 +89,32 @@ const handleLocationSelect = async (loc: { longitude: number; latitude: number; 
     <div class="home-content">
       <Globe ref="globeRef" @location-select="handleLocationSelect" @camera-update="handleCameraUpdate" />
       <SidePanel :location="selectedLocation" :weather="weather" :loading="loading" :heading="cameraHeading" @fly-to="handleFlyTo" />
+
+      <!-- 移动端 HUD 覆盖层 -->
+      <div v-if="isMobile && selectedLocation" class="mobile-hud">
+        <!-- 微型罗盘 -->
+        <div class="hud-compass">
+          <svg viewBox="0 0 44 44" class="hud-svg">
+            <circle cx="22" cy="22" r="20" fill="rgba(0,0,0,.4)" stroke="rgba(255,255,255,.15)" stroke-width=".5"/>
+            <text x="22" y="6" text-anchor="middle" fill="#e74c3c" font-size="7" font-weight="bold">N</text>
+            <g :style="{ transform: `rotate(${-cameraHeading}deg)`, transformOrigin: '22px 22px' }">
+              <line x1="22" y1="5" x2="22" y2="9" stroke="#e74c3c" stroke-width="1"/>
+              <line x1="22" y1="35" x2="22" y2="39" stroke="rgba(255,255,255,.3)" stroke-width=".8"/>
+            </g>
+            <circle cx="22" cy="22" r="3" fill="rgba(74,144,217,.7)"/>
+          </svg>
+        </div>
+
+        <!-- 位置信息 -->
+        <div class="hud-info">
+          <div class="hud-address">{{ selectedLocation.address || '加载中…' }}</div>
+          <div class="hud-meta">
+            <span class="hud-shan">{{ currentShan }}</span>
+            <span class="hud-degree">{{ Math.round(((cameraHeading % 360) + 360) % 360) }}°</span>
+            <span v-if="selectedLocation.cameraHeight" class="hud-alt">{{ (selectedLocation.cameraHeight / 1000).toFixed(1) }}km</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -90,6 +131,51 @@ const handleLocationSelect = async (loc: { longitude: number; latitude: number; 
     display: flex;
     position: relative;
     overflow: hidden;
+  }
+}
+
+.mobile-hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+  max-width: 75%;
+}
+
+.hud-compass {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.hud-info {
+  background: rgba(0,0,0,.55);
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-width: 0;
+
+  .hud-address {
+    font-size: 11px;
+    color: rgba(255,255,255,.85);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+  }
+
+  .hud-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 10px;
+
+    .hud-shan { color: #4a90d9; font-weight: 600; }
+    .hud-degree { color: rgba(255,255,255,.6); }
+    .hud-alt { color: rgba(255,255,255,.4); }
   }
 }
 </style>
