@@ -495,14 +495,6 @@ export default {}
   position: relative;
 }
 
-.home-icon {
-  position: absolute; top: 12px; left: 16px;
-  background: none; border: none; font-size: 22px;
-  cursor: pointer; padding: 4px; line-height: 1; color: #fff;
-  &:hover { opacity: .7; }
-}
-}
-
 .avatar {
   width: 64px;
   height: 64px;
@@ -523,6 +515,13 @@ export default {}
   .display-name { color: #fff; font-size: 20px; font-weight: 600; margin-bottom: 4px; }
   .sub-info { color: rgba(255,255,255,0.7); font-size: 13px; }
   .verified-badge { color: #4caf50; margin-left: 8px; font-size: 12px; }
+}
+
+.home-icon {
+  position: absolute; top: 12px; left: 16px; z-index: 5;
+  background: none; border: none; font-size: 22px;
+  cursor: pointer; padding: 4px; line-height: 1;
+  &:hover { opacity: .7; }
 }
 
 .consumption-bar {
