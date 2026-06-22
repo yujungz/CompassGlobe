@@ -198,6 +198,7 @@ function handleLogout() {
   <div class="profile-page">
     <!-- 头部 -->
     <div class="profile-header">
+      <button class="home-icon" @click="router.push('/')" title="返回首页">🏠</button>
       <div class="avatar">
         <span class="avatar-text">{{ (profile?.nickname || profile?.username || '用')[0] }}</span>
       </div>
@@ -436,7 +437,6 @@ function handleLogout() {
         <div class="section-header"><h3>账号操作</h3></div>
         <div class="action-list">
           <button class="action-btn" @click="showPasswordDialog = true">修改密码</button>
-          <button class="action-btn" @click="router.push('/')">返回首页</button>
           <button class="action-btn danger" @click="handleLogout">退出登录</button>
         </div>
       </div>
@@ -492,6 +492,15 @@ export default {}
   display: flex;
   align-items: center;
   gap: 16px;
+  position: relative;
+}
+
+.home-icon {
+  position: absolute; top: 12px; left: 16px;
+  background: none; border: none; font-size: 22px;
+  cursor: pointer; padding: 4px; line-height: 1; color: #fff;
+  &:hover { opacity: .7; }
+}
 }
 
 .avatar {
