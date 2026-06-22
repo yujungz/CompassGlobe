@@ -959,6 +959,14 @@ router.get('/fortune-records', adminAuthMiddleware, async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: '获取失败' }) }
 })
 
+router.get('/fortune-records/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const r = await prisma.fortuneRecord.findUnique({ where: { id: req.params.id } })
+    if (!r) return res.status(404).json({ error: '不存在' })
+    res.json(r)
+  } catch (e) { console.error(e); res.status(500).json({ error: '获取失败' }) }
+})
+
 router.delete('/fortune-records/:id', adminAuthMiddleware, superAdminOnly, async (req, res) => {
   try { await prisma.fortuneRecord.deleteMany({ where: { id: req.params.id } }); res.json({ message: '删除成功' }) }
   catch (e) { console.error(e); res.status(500).json({ error: '删除失败' }) }
@@ -987,6 +995,14 @@ router.get('/divination-records', adminAuthMiddleware, async (req, res) => {
 router.delete('/divination-records/:id', adminAuthMiddleware, superAdminOnly, async (req, res) => {
   try { await prisma.divinationRecord.deleteMany({ where: { id: req.params.id } }); res.json({ message: '删除成功' }) }
   catch (e) { console.error(e); res.status(500).json({ error: '删除失败' }) }
+})
+
+router.get('/divination-records/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const r = await prisma.divinationRecord.findUnique({ where: { id: req.params.id } })
+    if (!r) return res.status(404).json({ error: '不存在' })
+    res.json(r)
+  } catch (e) { console.error(e); res.status(500).json({ error: '获取失败' }) }
 })
 
 // ============ 管理员 PDF 下载 ============

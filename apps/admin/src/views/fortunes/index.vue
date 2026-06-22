@@ -46,7 +46,7 @@ function handleSelectionChange(rows: Record[]) { selectedIds.value = rows.map(r 
 
 async function openDetail(row: Record) {
   try {
-    const res: any = await request.get(`/api/fortune/${row.id}`)
+    const res: any = await request.get(`/admin/fortune-records/${row.id}`)
     detail.value = res
   } catch { detail.value = row }
   showDetail.value = true
