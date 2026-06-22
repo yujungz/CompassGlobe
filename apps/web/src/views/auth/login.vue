@@ -22,8 +22,8 @@ let timer: ReturnType<typeof setInterval> | null = null
 // ============ 登录逻辑 ============
 
 const handlePasswordLogin = async () => {
-  if (!passwordForm.value.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(passwordForm.value.email)) {
-    alert('请输入正确的邮箱地址')
+  if (!passwordForm.value.email) {
+    alert('请输入邮箱或用户名')
     return
   }
   if (!passwordForm.value.password) {
@@ -117,7 +117,7 @@ const handleSendCode = async () => {
         <!-- 密码登录 -->
         <template v-if="loginType === 'password'">
           <div class="form-item">
-            <input v-model="passwordForm.email" type="email" placeholder="邮箱地址" class="input" />
+            <input v-model="passwordForm.email" type="text" placeholder="邮箱 / 用户名" class="input" />
           </div>
           <div class="form-item">
             <input v-model="passwordForm.password" type="password" placeholder="密码" class="input" />
