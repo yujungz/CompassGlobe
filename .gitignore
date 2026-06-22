@@ -26,6 +26,9 @@ id_ecdsa
 *.pem
 *.key
 
+# SSL 证书
+ssl/
+
 # IDE
 .idea/
 .vscode/
