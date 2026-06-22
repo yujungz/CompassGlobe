@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { authApi } from '@/api/auth'
 import { useAuth } from '@/composables'
@@ -8,103 +8,15 @@ const router = useRouter()
 const route = useRoute()
 const { login } = useAuth()
 
-type LoginTab = 'password' | 'sms' | 'email' | 'wechat'
-const activeTab = ref<LoginTab>('password')
 const loading = ref(false)
 
-// 密码登录
-const passwordForm = ref({
-  account: '',
-  password: '',
-})
-
-// 手机验证码登录
-const smsForm = ref({
-  phone: '',
-  smsCode: '',
-})
-const smsCountdown = ref(0)
-let smsTimer: ReturnType<typeof setInterval> | null = null
-
 // 邮箱验证码登录
-const emailForm = ref({
-  email: '',
-  emailCode: '',
-})
+const emailForm = ref({ email: '', emailCode: '' })
 const emailCountdown = ref(0)
 let emailTimer: ReturnType<typeof setInterval> | null = null
 
-// 微信扫码
-const showWechatModal = ref(false)
-const wechatQrUrl = ref('')
-const wechatTicket = ref('')
-const wechatStatus = ref<'pending' | 'scanned' | 'confirmed'>('pending')
-let wechatPollTimer: ReturnType<typeof setInterval> | null = null
-
-const accountType = computed(() => {
-  const val = passwordForm.value.account.trim()
-  if (/^1[3-9]\d{9}$/.test(val)) return 'phone'
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return 'email'
-  if (/^wx_/.test(val)) return 'wechat'
-  if (val.length >= 2) return 'username'
-  return 'unknown'
-})
 
 // ============ 登录逻辑 ============
-
-const handlePasswordLogin = async () => {
-  if (!passwordForm.value.account) {
-    alert('请输入邮箱/手机号/微信号/用户名')
-    return
-  }
-  if (!passwordForm.value.password) {
-    alert('请输入密码')
-    return
-  }
-  if (accountType.value === 'unknown') {
-    alert('请输入正确的邮箱、手机号、微信号或用户名')
-    return
-  }
-
-  loading.value = true
-  try {
-    const res = await authApi.login({
-      account: passwordForm.value.account,
-      password: passwordForm.value.password,
-      loginType: 'password',
-    })
-    handleLoginSuccess(res)
-  } catch (error: any) {
-    alert(error.response?.data?.error || '登录失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-const handleSmsLogin = async () => {
-  if (!smsForm.value.phone || !/^1[3-9]\d{9}$/.test(smsForm.value.phone)) {
-    alert('请输入正确的手机号')
-    return
-  }
-  if (!smsForm.value.smsCode) {
-    alert('请输入验证码')
-    return
-  }
-
-  loading.value = true
-  try {
-    const res = await authApi.login({
-      phone: smsForm.value.phone,
-      smsCode: smsForm.value.smsCode,
-      loginType: 'sms',
-    })
-    handleLoginSuccess(res)
-  } catch (error: any) {
-    alert(error.response?.data?.error || '登录失败')
-  } finally {
-    loading.value = false
-  }
-}
 
 const handleEmailLogin = async () => {
   if (!emailForm.value.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailForm.value.email)) {
@@ -131,11 +43,7 @@ const handleEmailLogin = async () => {
   }
 }
 
-const handleLogin = () => {
-  if (activeTab.value === 'password') handlePasswordLogin()
-  else if (activeTab.value === 'sms') handleSmsLogin()
-  else handleEmailLogin()
-}
+const handleLogin = () => handleEmailLogin()
 
 const handleLoginSuccess = (res: any) => {
   login(res.token, res.user)
@@ -145,19 +53,6 @@ const handleLoginSuccess = (res: any) => {
 
 // ============ 发送验证码 ============
 
-const handleSendSms = async () => {
-  if (!smsForm.value.phone || !/^1[3-9]\d{9}$/.test(smsForm.value.phone)) {
-    alert('请输入正确的手机号')
-    return
-  }
-  try {
-    await authApi.sendSmsCode(smsForm.value.phone)
-    startCountdown('sms')
-  } catch {
-    alert('发送失败，请稍后重试')
-  }
-}
-
 const handleSendEmail = async () => {
   if (!emailForm.value.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailForm.value.email)) {
     alert('请输入正确的邮箱地址')
@@ -165,77 +60,19 @@ const handleSendEmail = async () => {
   }
   try {
     await authApi.sendEmailCode(emailForm.value.email)
-    startCountdown('email')
+    startCountdown()
   } catch {
     alert('发送失败，请稍后重试')
   }
 }
 
-const startCountdown = (type: 'sms' | 'email') => {
-  const countdownRef = type === 'sms' ? smsCountdown : emailCountdown
-  countdownRef.value = 60
-  const timer = setInterval(() => {
-    countdownRef.value--
-    if (countdownRef.value <= 0) {
-      clearInterval(timer)
-    }
-  }, 1000)
-  if (type === 'sms') smsTimer = timer
-  else emailTimer = timer
-}
-
-// ============ 微信扫码 ============
-
-const openWechatLogin = async () => {
-  try {
-    const res = await authApi.getWechatQrcode()
-    wechatTicket.value = res.ticket
-    wechatQrUrl.value = res.url
-    wechatStatus.value = 'pending'
-    showWechatModal.value = true
-    startWechatPoll()
-  } catch {
-    alert('获取二维码失败')
-  }
-}
-
-const startWechatPoll = () => {
-  stopWechatPoll()
-  wechatPollTimer = setInterval(async () => {
-    try {
-      const res = await authApi.checkWechatScan(wechatTicket.value)
-      wechatStatus.value = res.status
-      if (res.status === 'confirmed' && res.token && res.user) {
-        stopWechatPoll()
-        login(res.token, res.user)
-        showWechatModal.value = false
-        const redirect = route.query.redirect as string
-        router.push(redirect || '/')
-      }
-    } catch {
-      stopWechatPoll()
-      wechatStatus.value = 'pending'
-    }
-  }, 2000)
-}
-
-const stopWechatPoll = () => {
-  if (wechatPollTimer) {
-    clearInterval(wechatPollTimer)
-    wechatPollTimer = null
-  }
-}
-
-// 组件卸载时清理所有定时器，避免内存泄漏
-onUnmounted(() => {
-  if (smsTimer) clearInterval(smsTimer)
+const startCountdown = () => {
+  emailCountdown.value = 60
   if (emailTimer) clearInterval(emailTimer)
-  stopWechatPoll()
-})
-
-const closeWechatModal = () => {
-  stopWechatPoll()
-  showWechatModal.value = false
+  emailTimer = setInterval(() => {
+    emailCountdown.value--
+    if (emailCountdown.value <= 0 && emailTimer) clearInterval(emailTimer)
+  }, 1000)
 }
 </script>
 
@@ -245,34 +82,15 @@ const closeWechatModal = () => {
       <h1 class="title">登录</h1>
 
       <form class="login-form" @submit.prevent="handleLogin">
-        <!-- 邮箱验证码登录 -->
-        <template v-if="activeTab === 'email'">
-          <div class="form-item">
-            <input
-              v-model="emailForm.email"
-              type="email"
-              placeholder="邮箱地址"
-              class="input"
-            />
-          </div>
-          <div class="form-item sms-item">
-            <input
-              v-model="emailForm.emailCode"
-              type="text"
-              placeholder="验证码"
-              maxlength="6"
-              class="input"
-            />
-            <button
-              type="button"
-              class="code-btn"
-              :disabled="emailCountdown > 0"
-              @click="handleSendEmail"
-            >
-              {{ emailCountdown > 0 ? `${emailCountdown}s` : '获取验证码' }}
-            </button>
-          </div>
-        </template>
+        <div class="form-item">
+          <input v-model="emailForm.email" type="email" placeholder="邮箱地址" class="input" />
+        </div>
+        <div class="form-item sms-item">
+          <input v-model="emailForm.emailCode" type="text" placeholder="验证码" maxlength="6" class="input" />
+          <button type="button" class="code-btn" :disabled="emailCountdown > 0" @click="handleSendEmail">
+            {{ emailCountdown > 0 ? `${emailCountdown}s` : '获取验证码' }}
+          </button>
+        </div>
 
         <button type="submit" class="submit-btn" :disabled="loading">
           {{ loading ? '登录中...' : '登录' }}
@@ -284,50 +102,6 @@ const closeWechatModal = () => {
       </div>
     </div>
 
-    <!-- 微信扫码弹窗 -->
-    <div v-if="showWechatModal" class="modal-overlay" @click.self="closeWechatModal">
-      <div class="wechat-modal">
-        <button class="modal-close" @click="closeWechatModal">&times;</button>
-        <h3 class="modal-title">微信扫码登录</h3>
-
-        <div class="qr-wrapper">
-          <div class="qr-placeholder">
-            <div class="qr-mock">
-              <svg viewBox="0 0 100 100" width="160" height="160">
-                <rect width="100" height="100" fill="#fff" stroke="#e0e0e0" stroke-width="1"/>
-                <!-- 模拟二维码图案 -->
-                <rect x="10" y="10" width="25" height="25" fill="#333"/>
-                <rect x="65" y="10" width="25" height="25" fill="#333"/>
-                <rect x="10" y="65" width="25" height="25" fill="#333"/>
-                <rect x="15" y="15" width="15" height="15" fill="#fff"/>
-                <rect x="70" y="15" width="15" height="15" fill="#fff"/>
-                <rect x="15" y="70" width="15" height="15" fill="#fff"/>
-                <rect x="19" y="19" width="7" height="7" fill="#333"/>
-                <rect x="74" y="19" width="7" height="7" fill="#333"/>
-                <rect x="19" y="74" width="7" height="7" fill="#333"/>
-                <rect x="40" y="10" width="5" height="5" fill="#333"/>
-                <rect x="48" y="10" width="5" height="5" fill="#333"/>
-                <rect x="40" y="18" width="5" height="5" fill="#333"/>
-                <rect x="48" y="25" width="5" height="5" fill="#333"/>
-                <rect x="40" y="40" width="20" height="20" fill="#07c160" rx="2"/>
-                <text x="50" y="54" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">W</text>
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div class="scan-status">
-          <template v-if="wechatStatus === 'pending'">
-            <p class="status-text">请使用微信扫描二维码登录</p>
-            <p class="status-hint">打开微信 → 扫一扫</p>
-          </template>
-          <template v-else-if="wechatStatus === 'scanned'">
-            <p class="status-text scanning">扫描成功</p>
-            <p class="status-hint">请在手机上确认登录</p>
-          </template>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
