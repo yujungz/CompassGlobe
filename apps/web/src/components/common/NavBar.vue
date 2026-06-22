@@ -27,7 +27,7 @@ const toggleMenu = () => {
 function showAbout() {
   helpOpen.value = false
   menuVisible.value = false
-  alert('公司：广州市双鱼文化科技有限公司\n联系方式：18011749867@163.com')
+  alert('公司：广州市双鱼文化科技有限公司\n联系方式：yujun_gz@sina.com')
 }
 
 function showUsage() {
