@@ -488,7 +488,7 @@ export default {}
 
 .profile-header {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  padding: 32px 20px 32px 60px;
+  padding: 32px 20px 32px 80px;
   display: flex;
   align-items: center;
   gap: 16px;
