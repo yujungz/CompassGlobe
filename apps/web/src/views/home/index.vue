@@ -34,9 +34,10 @@ const isMobile = computed(() => windowWidth.value < 768)
 // ===== 陀螺仪（手机物理朝向） =====
 const deviceHeading = ref<number | null>(null)
 const gyroAvailable = ref(false)
+const useGyro = ref(false) // 是否使用陀螺仪方向
+let gyroTimer: ReturnType<typeof setTimeout> | null = null
 
 async function requestGyroPermission() {
-  // iOS 13+ 需要显式请求权限
   if (typeof DeviceOrientationEvent !== 'undefined' &&
       typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
     try {
@@ -54,9 +55,20 @@ function onDeviceOrientation(event: DeviceOrientationEvent) {
   }
 }
 
-// 最终显示的朝向：陀螺仪优先（手机物理方向），回退相机朝向
+// 相机更新时调用：2 秒内保持相机朝向，之后切换回陀螺仪
+function onCameraUpdate(height: number, heading: number) {
+  liveCameraHeight.value = height
+  cameraHeading.value = heading
+  if (selectedLocation.value) selectedLocation.value.cameraHeight = height
+  // 用户正在操作地球仪 → 用相机朝向
+  useGyro.value = false
+  if (gyroTimer) clearTimeout(gyroTimer)
+  gyroTimer = setTimeout(() => { useGyro.value = true }, 2000)
+}
+
+// 智能切换：操作地球仪时用相机朝向，静止后用陀螺仪
 const effectiveHeading = computed(() => {
-  if (gyroAvailable.value && deviceHeading.value !== null) return deviceHeading.value
+  if (gyroAvailable.value && useGyro.value && deviceHeading.value !== null) return deviceHeading.value
   return cameraHeading.value
 })
 
@@ -73,11 +85,8 @@ const handleFlyTo = async (lon: number, lat: number) => {
   await handleLocationSelect({ longitude: lon, latitude: lat, altitude: 0 })
 }
 
-const handleCameraUpdate = (height: number, heading: number) => {
-  liveCameraHeight.value = height
-  cameraHeading.value = heading
-  if (selectedLocation.value) selectedLocation.value.cameraHeight = height
-}
+// 相机更新 → onCameraUpdate（含智能切换逻辑）
+const handleCameraUpdate = onCameraUpdate
 
 // 初始化：请求陀螺仪权限 + 注册事件
 onMounted(async () => {
