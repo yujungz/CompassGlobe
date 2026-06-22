@@ -9,21 +9,49 @@ const route = useRoute()
 const { login } = useAuth()
 
 const loading = ref(false)
+const loginType = ref<'password' | 'email'>('password')
+
+// 密码登录
+const passwordForm = ref({ email: '', password: '' })
 
 // 邮箱验证码登录
-const emailForm = ref({ email: '', emailCode: '' })
-const emailCountdown = ref(0)
-let emailTimer: ReturnType<typeof setInterval> | null = null
-
+const emailCodeForm = ref({ email: '', code: '' })
+const countdown = ref(0)
+let timer: ReturnType<typeof setInterval> | null = null
 
 // ============ 登录逻辑 ============
 
-const handleEmailLogin = async () => {
-  if (!emailForm.value.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailForm.value.email)) {
+const handlePasswordLogin = async () => {
+  if (!passwordForm.value.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(passwordForm.value.email)) {
     alert('请输入正确的邮箱地址')
     return
   }
-  if (!emailForm.value.emailCode) {
+  if (!passwordForm.value.password) {
+    alert('请输入密码')
+    return
+  }
+
+  loading.value = true
+  try {
+    const res = await authApi.login({
+      account: passwordForm.value.email,
+      password: passwordForm.value.password,
+      loginType: 'password',
+    })
+    handleLoginSuccess(res)
+  } catch (error: any) {
+    alert(error.response?.data?.error || '登录失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleEmailCodeLogin = async () => {
+  if (!emailCodeForm.value.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCodeForm.value.email)) {
+    alert('请输入正确的邮箱地址')
+    return
+  }
+  if (!emailCodeForm.value.code) {
     alert('请输入验证码')
     return
   }
@@ -31,8 +59,8 @@ const handleEmailLogin = async () => {
   loading.value = true
   try {
     const res = await authApi.login({
-      email: emailForm.value.email,
-      emailCode: emailForm.value.emailCode,
+      email: emailCodeForm.value.email,
+      emailCode: emailCodeForm.value.code,
       loginType: 'email',
     })
     handleLoginSuccess(res)
@@ -43,7 +71,10 @@ const handleEmailLogin = async () => {
   }
 }
 
-const handleLogin = () => handleEmailLogin()
+const handleLogin = () => {
+  if (loginType.value === 'password') handlePasswordLogin()
+  else handleEmailCodeLogin()
+}
 
 const handleLoginSuccess = (res: any) => {
   login(res.token, res.user)
@@ -53,26 +84,22 @@ const handleLoginSuccess = (res: any) => {
 
 // ============ 发送验证码 ============
 
-const handleSendEmail = async () => {
-  if (!emailForm.value.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailForm.value.email)) {
+const handleSendCode = async () => {
+  if (!emailCodeForm.value.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCodeForm.value.email)) {
     alert('请输入正确的邮箱地址')
     return
   }
   try {
-    await authApi.sendEmailCode(emailForm.value.email)
-    startCountdown()
+    await authApi.sendEmailCode(emailCodeForm.value.email)
+    countdown.value = 60
+    if (timer) clearInterval(timer)
+    timer = setInterval(() => {
+      countdown.value--
+      if (countdown.value <= 0 && timer) clearInterval(timer)
+    }, 1000)
   } catch {
     alert('发送失败，请稍后重试')
   }
-}
-
-const startCountdown = () => {
-  emailCountdown.value = 60
-  if (emailTimer) clearInterval(emailTimer)
-  emailTimer = setInterval(() => {
-    emailCountdown.value--
-    if (emailCountdown.value <= 0 && emailTimer) clearInterval(emailTimer)
-  }, 1000)
 }
 </script>
 
@@ -81,16 +108,34 @@ const startCountdown = () => {
     <div class="login-card">
       <h1 class="title">登录</h1>
 
+      <div class="login-tabs">
+        <button :class="['tab', { active: loginType === 'password' }]" @click="loginType = 'password'">密码登录</button>
+        <button :class="['tab', { active: loginType === 'email' }]" @click="loginType = 'email'">验证码登录</button>
+      </div>
+
       <form class="login-form" @submit.prevent="handleLogin">
-        <div class="form-item">
-          <input v-model="emailForm.email" type="email" placeholder="邮箱地址" class="input" />
-        </div>
-        <div class="form-item sms-item">
-          <input v-model="emailForm.emailCode" type="text" placeholder="验证码" maxlength="6" class="input" />
-          <button type="button" class="code-btn" :disabled="emailCountdown > 0" @click="handleSendEmail">
-            {{ emailCountdown > 0 ? `${emailCountdown}s` : '获取验证码' }}
-          </button>
-        </div>
+        <!-- 密码登录 -->
+        <template v-if="loginType === 'password'">
+          <div class="form-item">
+            <input v-model="passwordForm.email" type="email" placeholder="邮箱地址" class="input" />
+          </div>
+          <div class="form-item">
+            <input v-model="passwordForm.password" type="password" placeholder="密码" class="input" />
+          </div>
+        </template>
+
+        <!-- 验证码登录 -->
+        <template v-if="loginType === 'email'">
+          <div class="form-item">
+            <input v-model="emailCodeForm.email" type="email" placeholder="邮箱地址" class="input" />
+          </div>
+          <div class="form-item sms-item">
+            <input v-model="emailCodeForm.code" type="text" placeholder="验证码" maxlength="6" class="input" />
+            <button type="button" class="code-btn" :disabled="countdown > 0" @click="handleSendCode">
+              {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
+            </button>
+          </div>
+        </template>
 
         <button type="submit" class="submit-btn" :disabled="loading">
           {{ loading ? '登录中...' : '登录' }}
@@ -101,7 +146,6 @@ const startCountdown = () => {
         <router-link to="/register" class="link">没有账号？去注册</router-link>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -163,9 +207,7 @@ const startCountdown = () => {
 }
 
 .login-form {
-  .form-item {
-    margin-bottom: 16px;
-  }
+  .form-item { margin-bottom: 16px; }
 
   .input {
     width: 100%;
@@ -175,39 +217,19 @@ const startCountdown = () => {
     font-size: 15px;
     transition: border-color 0.2s;
 
-    &:focus {
-      outline: none;
-      border-color: #4a90d9;
-    }
+    &:focus { outline: none; border-color: #4a90d9; }
   }
 
   .sms-item {
     display: flex;
     gap: 12px;
-
-    .input {
-      flex: 1;
-    }
-
+    .input { flex: 1; }
     .code-btn {
-      padding: 0 16px;
-      background: #4a90d9;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 13px;
-      cursor: pointer;
-      white-space: nowrap;
-      min-width: 100px;
-
-      &:hover:not(:disabled) {
-        background: #357abd;
-      }
-
-      &:disabled {
-        background: #a0c4e8;
-        cursor: not-allowed;
-      }
+      padding: 0 16px; background: #4a90d9; color: #fff;
+      border: none; border-radius: 8px; font-size: 13px;
+      cursor: pointer; white-space: nowrap; min-width: 100px;
+      &:hover:not(:disabled) { background: #357abd; }
+      &:disabled { background: #a0c4e8; cursor: not-allowed; }
     }
   }
 }
@@ -229,59 +251,7 @@ const startCountdown = () => {
     box-shadow: 0 4px 12px rgba(74, 144, 217, 0.4);
   }
 
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-}
-
-.divider {
-  display: flex;
-  align-items: center;
-  margin: 24px 0 16px;
-
-  &::before,
-  &::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: #e0e0e0;
-  }
-
-  span {
-    padding: 0 16px;
-    color: #999;
-    font-size: 12px;
-    white-space: nowrap;
-  }
-}
-
-.social-login {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-
-  .wechat-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 8px 16px;
-    border-radius: 8px;
-    transition: background 0.2s;
-
-    &:hover {
-      background: #f5f5f5;
-    }
-
-    span {
-      font-size: 12px;
-      color: #666;
-    }
-  }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 
 .footer-links {
@@ -292,86 +262,7 @@ const startCountdown = () => {
     color: #4a90d9;
     text-decoration: none;
     font-size: 14px;
-
-    &:hover {
-      text-decoration: underline;
-    }
-  }
-}
-
-// 微信扫码弹窗
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.wechat-modal {
-  background: #fff;
-  border-radius: 16px;
-  padding: 32px;
-  width: 340px;
-  text-align: center;
-  position: relative;
-
-  .modal-close {
-    position: absolute;
-    right: 16px;
-    top: 12px;
-    background: none;
-    border: none;
-    font-size: 24px;
-    color: #999;
-    cursor: pointer;
-
-    &:hover {
-      color: #333;
-    }
-  }
-
-  .modal-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 24px;
-  }
-
-  .qr-wrapper {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 16px;
-
-    .qr-placeholder {
-      width: 200px;
-      height: 200px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px dashed #e0e0e0;
-      border-radius: 8px;
-    }
-  }
-
-  .scan-status {
-    .status-text {
-      font-size: 15px;
-      color: #333;
-      font-weight: 500;
-
-      &.scanning {
-        color: #07c160;
-      }
-    }
-
-    .status-hint {
-      font-size: 13px;
-      color: #999;
-      margin-top: 4px;
-    }
+    &:hover { text-decoration: underline; }
   }
 }
 </style>
