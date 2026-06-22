@@ -28,27 +28,42 @@ const savedPos = localStorage.getItem('locate-btn-pos')
 const btnLeft = ref(savedPos ? parseFloat(savedPos.split(',')[0]) : 0)
 const btnBottom = ref(savedPos ? parseFloat(savedPos.split(',')[1]) : 100)
 const dragging = ref(false)
-const dragStart = ref({ x: 0, y: 0, btnLeft: 0, btnBottom: 0 })
+const dragStartPos = ref({ x: 0, y: 0, time: 0 })
+const pointerMoved = ref(false)
 
 function onDragStart(e: PointerEvent) {
   if (locating.value) return
   dragging.value = true
+  pointerMoved.value = false
   ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-  dragStart.value = { x: e.clientX, y: e.clientY, btnLeft: btnLeft.value, btnBottom: btnBottom.value }
+  dragStartPos.value = { x: e.clientX, y: e.clientY, time: Date.now() }
 }
 
 function onDragMove(e: PointerEvent) {
   if (!dragging.value) return
-  const dx = e.clientX - dragStart.value.x
-  const dy = dragStart.value.y - e.clientY
-  btnLeft.value = Math.max(0, dragStart.value.btnLeft + dx)
-  btnBottom.value = Math.max(0, Math.min(window.innerHeight - 100, dragStart.value.btnBottom + dy))
+  // 累计移动距离
+  if (Math.abs(e.clientX - dragStartPos.value.x) > 10 || Math.abs(e.clientY - dragStartPos.value.y) > 10) {
+    pointerMoved.value = true
+  }
+  btnLeft.value = Math.max(0, btnLeft.value + (dragStartPos.value.x - e.clientX))
+  btnBottom.value = Math.max(0, btnBottom.value - (dragStartPos.value.y - e.clientY))
+  dragStartPos.value.x = e.clientX
+  dragStartPos.value.y = e.clientY
 }
 
 function onDragEnd() {
   if (!dragging.value) return
   dragging.value = false
   localStorage.setItem('locate-btn-pos', `${btnLeft.value},${btnBottom.value}`)
+}
+
+function onPointerClick() {
+  if (locating.value) return
+  // 拖动过 → 不触发定位
+  if (pointerMoved.value) return
+  // 按住超过 2 秒 → 不触发定位
+  if (dragStartPos.value.time > 0 && Date.now() - dragStartPos.value.time > 2000) return
+  locateCurrentPosition()
 }
 
 const MIN_HEIGHT = 100    // 最小高度 0.1km
@@ -238,12 +253,12 @@ defineExpose({
       <button
         class="control-btn"
         :disabled="locating"
-        :title="locating ? '定位中…' : '定位当前位置（可拖动，双击定位）'"
-        @dblclick="locateCurrentPosition"
+        :title="locating ? '定位中…' : '定位当前位置（可拖动）'"
         @pointerdown="onDragStart"
         @pointermove="onDragMove"
         @pointerup="onDragEnd"
         @pointercancel="onDragEnd"
+        @click="onPointerClick"
       >
         {{ locating ? '⏳' : '📍' }}
       </button>
