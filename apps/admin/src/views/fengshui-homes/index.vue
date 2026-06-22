@@ -51,6 +51,20 @@ async function openDetail(id: string) {
   } catch { ElMessage.error('获取详情失败') }
 }
 
+function downloadPdf(id: string, apiPath: string, label: string) {
+  const token = localStorage.getItem('admin_token')
+  if (!token) return
+  fetch(`/api/admin/pdf${apiPath}/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+    .then(r => r.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = label
+      a.click(); URL.revokeObjectURL(url)
+    })
+    .catch(() => {})
+}
+
 async function handleDelete(row: Record) {
   try {
     await ElMessageBox.confirm('确定删除该记录吗？', '提示', { type: 'warning' })
@@ -97,6 +111,7 @@ async function handleBatchDelete() {
         <el-table-column label="时间" min-width="160"><template #default="{ row }">{{ row.createdAt ? new Date(row.createdAt).toLocaleString('zh-CN') : '-' }}</template></el-table-column>
         <el-table-column label="操作" min-width="140">
           <template #default="{ row }">
+            <el-button size="small" @click="downloadPdf(row.id, '/fengshui-home', `居家风水_${row.id.slice(0,8)}`)">PDF</el-button>
             <el-button size="small" type="primary" @click="openDetail(row.id)">查看详情</el-button>
             <el-button v-if="isSuper" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
           </template>

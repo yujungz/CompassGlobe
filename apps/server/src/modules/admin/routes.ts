@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { adminAuthMiddleware, superAdminOnly, type AdminAuthRequest } from '../../middlewares/admin-auth.js'
 import { comparePassword, hashPassword, generateAdminToken } from '../../lib/admin-auth.js'
 import { refreshCacheSection } from '../../lib/config.js'
+import { generateFortunePDF, generateDivinationPDF, generateFengshuiHomePDF } from '../../lib/pdf.js'
 
 const prisma = new PrismaClient()
 const router: Router = Router()
@@ -986,6 +987,68 @@ router.get('/divination-records', adminAuthMiddleware, async (req, res) => {
 router.delete('/divination-records/:id', adminAuthMiddleware, superAdminOnly, async (req, res) => {
   try { await prisma.divinationRecord.deleteMany({ where: { id: req.params.id } }); res.json({ message: '删除成功' }) }
   catch (e) { console.error(e); res.status(500).json({ error: '删除失败' }) }
+})
+
+// ============ 管理员 PDF 下载 ============
+
+router.get('/pdf/fortune/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const record = await prisma.fortuneRecord.findUnique({ where: { id: req.params.id } })
+    if (!record) return res.status(404).json({ error: '记录不存在' })
+    const birthInfo = record.isLunar
+      ? `农历 ${record.birthYear}年${record.birthMonth}月${record.birthDay}日 ${record.birthHour}时`
+      : `公历 ${record.birthYear}年${record.birthMonth}月${record.birthDay}日 ${record.birthHour}时`
+    generateFortunePDF(res, {
+      name: record.name,
+      gender: record.gender,
+      birthInfo,
+      baZi: (record.baZi as any) || { yearPillar: '', monthPillar: '', dayPillar: '', timePillar: '' },
+      zodiac: record.zodiac || '',
+      constellation: record.constellation || '',
+      predictYear: record.predictYear,
+      result: (record.result as any)?.analysis || '',
+      birthAddress: record.birthAddress,
+      company: record.company,
+      industry: record.industry,
+      profession: record.profession,
+      remark: record.remark,
+    })
+  } catch (e) { console.error(e); res.status(500).json({ error: 'PDF 生成失败' }) }
+})
+
+router.get('/pdf/divination/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const record = await prisma.divinationRecord.findUnique({ where: { id: req.params.id } })
+    if (!record) return res.status(404).json({ error: '记录不存在' })
+    const hex = record.hexagram as any
+    generateDivinationPDF(res, {
+      name: record.name,
+      gender: record.gender,
+      question: record.question,
+      hexagram: {
+        originalName: hex.originalName || '',
+        originalSymbol: hex.originalSymbol || '',
+        originalGuaCi: hex.originalGuaCi || '',
+        changedName: hex.changedName || undefined,
+        changedSymbol: hex.changedSymbol || undefined,
+        changingLines: hex.changingLines || [],
+        yaoCi: hex.yaoCi || [],
+      },
+      result: (record.result as any)?.analysis || '',
+    })
+  } catch (e) { console.error(e); res.status(500).json({ error: 'PDF 生成失败' }) }
+})
+
+router.get('/pdf/fengshui-home/:id', adminAuthMiddleware, async (req, res) => {
+  try {
+    const record = await prisma.fengshuiHome.findUnique({ where: { id: req.params.id } })
+    if (!record) return res.status(404).json({ error: '记录不存在' })
+    generateFengshuiHomePDF(res, {
+      descriptions: record.descriptions || [],
+      result: (record.result as any)?.analysis || '',
+      createdAt: record.createdAt.toISOString(),
+    })
+  } catch (e) { console.error(e); res.status(500).json({ error: 'PDF 生成失败' }) }
 })
 
 export default router
