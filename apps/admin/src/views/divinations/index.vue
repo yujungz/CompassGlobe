@@ -44,7 +44,13 @@ const handleSearch = () => { page.value = 1; fetchList() }
 const handleReset = () => { searchForm.value = { username: '', startDate: null, endDate: null }; page.value = 1; fetchList() }
 function handleSelectionChange(rows: Record[]) { selectedIds.value = rows.map(r => r.id) }
 
-async function openDetail(row: Record) { detail.value = row; showDetail.value = true }
+async function openDetail(row: Record) {
+  try {
+    const res: any = await request.get(`/api/divination/${row.id}`)
+    detail.value = res
+  } catch { detail.value = row }
+  showDetail.value = true
+}
 function downloadPdf(id: string, apiPath: string, label: string) {
   const token = localStorage.getItem('admin_token')
   if (!token) return
