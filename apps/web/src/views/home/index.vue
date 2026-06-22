@@ -31,10 +31,11 @@ onMounted(() => window.addEventListener('resize', onResize))
 onUnmounted(() => window.removeEventListener('resize', onResize))
 const isMobile = computed(() => windowWidth.value < 768)
 
-// ===== 陀螺仪（手机物理朝向） =====
+// ===== 朝向模式选择：auto(自动) / camera(相机) / gyro(陀螺仪) =====
+const headingMode = ref(localStorage.getItem('heading-mode') || 'auto')
 const deviceHeading = ref<number | null>(null)
 const gyroAvailable = ref(false)
-const useGyro = ref(false) // 是否使用陀螺仪方向
+const useGyro = ref(false)
 let gyroTimer: ReturnType<typeof setTimeout> | null = null
 
 async function requestGyroPermission() {
@@ -55,21 +56,52 @@ function onDeviceOrientation(event: DeviceOrientationEvent) {
   }
 }
 
-// 相机更新时调用：2 秒内保持相机朝向，之后切换回陀螺仪
+// 相机更新时调用
 function onCameraUpdate(height: number, heading: number) {
   liveCameraHeight.value = height
   cameraHeading.value = heading
   if (selectedLocation.value) selectedLocation.value.cameraHeight = height
-  // 用户正在操作地球仪 → 用相机朝向
-  useGyro.value = false
-  if (gyroTimer) clearTimeout(gyroTimer)
-  gyroTimer = setTimeout(() => { useGyro.value = true }, 2000)
+  // auto 模式下：操作后 2 秒切回陀螺仪
+  if (headingMode.value === 'auto') {
+    useGyro.value = false
+    if (gyroTimer) clearTimeout(gyroTimer)
+    gyroTimer = setTimeout(() => { useGyro.value = true }, 2000)
+  }
 }
 
-// 智能切换：操作地球仪时用相机朝向，静止后用陀螺仪
+// 切换朝向模式
+function setHeadingMode(mode: string) {
+  headingMode.value = mode
+  localStorage.setItem('heading-mode', mode)
+  if (gyroTimer) clearTimeout(gyroTimer)
+  if (mode === 'camera') useGyro.value = false
+  else if (mode === 'gyro') useGyro.value = true
+  else if (mode === 'auto') {
+    useGyro.value = false
+    gyroTimer = setTimeout(() => { useGyro.value = true }, 2000)
+  }
+}
+
+function cycleHeadingMode() {
+  const next: Record<string, string> = { auto: 'camera', camera: 'gyro', gyro: 'auto' }
+  setHeadingMode(next[headingMode.value] || 'auto')
+}
+
+// 最终朝向：按模式选择
 const effectiveHeading = computed(() => {
+  if (headingMode.value === 'camera') return cameraHeading.value
+  if (headingMode.value === 'gyro') {
+    if (gyroAvailable.value && deviceHeading.value !== null) return deviceHeading.value
+    return cameraHeading.value
+  }
+  // auto
   if (gyroAvailable.value && useGyro.value && deviceHeading.value !== null) return deviceHeading.value
   return cameraHeading.value
+})
+
+const headingModeLabel = computed(() => {
+  const lbl: Record<string, string> = { auto: '自动', camera: '相机', gyro: '陀螺仪' }
+  return lbl[headingMode.value] || '自动'
 })
 
 // 当前朝向对应的二十四山
@@ -143,7 +175,7 @@ const handleLocationSelect = async (loc: { longitude: number; latitude: number; 
       <div v-if="isMobile && selectedLocation" class="mobile-hud">
         <!-- 微型罗盘 -->
         <div class="hud-compass">
-          <svg viewBox="0 0 44 44" class="hud-svg">
+          <svg viewBox="0 0 44 44">
             <circle cx="22" cy="22" r="20" fill="rgba(0,0,0,.4)" stroke="rgba(255,255,255,.15)" stroke-width=".5"/>
             <text x="22" y="6" text-anchor="middle" fill="#e74c3c" font-size="7" font-weight="bold">N</text>
             <g :style="{ transform: `rotate(${-effectiveHeading}deg)`, transformOrigin: '22px 22px' }">
@@ -153,6 +185,11 @@ const handleLocationSelect = async (loc: { longitude: number; latitude: number; 
             <circle cx="22" cy="22" r="3" fill="rgba(74,144,217,.7)"/>
           </svg>
           <div v-if="gyroAvailable" class="hud-gyro-badge" title="陀螺仪已启用">G</div>
+        </div>
+
+        <!-- 朝向模式选择 -->
+        <div class="hud-mode-dropdown">
+          <button class="hud-mode-btn" @click="cycleHeadingMode">{{ headingModeLabel }}</button>
         </div>
 
         <!-- 位置信息 -->
@@ -193,7 +230,17 @@ const handleLocationSelect = async (loc: { longitude: number; latitude: number; 
   align-items: flex-start;
   gap: 8px;
   pointer-events: none;
-  max-width: 75%;
+  max-width: 85%;
+}
+
+.hud-mode-dropdown {
+  pointer-events: auto;
+}
+.hud-mode-btn {
+  background: rgba(0,0,0,.55); color: rgba(255,255,255,.8);
+  border: none; border-radius: 4px; padding: 3px 8px;
+  font-size: 10px; cursor: pointer; white-space: nowrap;
+  &:hover { background: rgba(0,0,0,.7); }
 }
 
 .hud-compass {
