@@ -203,12 +203,13 @@ const handleAnalyze = () => {
             </div>
           </div>
         </div>
+      </template>
+
       <!-- 罗盘 Tab -->
       <template v-if="activeTab === 'compass'">
         <div class="panel-section">
           <CompassC :heading="props.heading ?? 0" />
         </div>
-      </template>
       </template>
 
         <button class="analyze-btn" @click="handleAnalyze">风水分析</button>
