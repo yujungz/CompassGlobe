@@ -1005,6 +1005,30 @@ router.get('/divination-records/:id', adminAuthMiddleware, async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: '获取失败' }) }
 })
 
+// ============ AI 创作记录管理 ============
+
+router.get('/ai-records', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { page = '1', pageSize = '20' } = req.query as Record<string, string>
+    const pageNum = Math.max(1, parseInt(page) || 1)
+    const pageSizeNum = Math.min(100, Math.max(1, parseInt(pageSize) || 20))
+    const [list, total] = await Promise.all([
+      prisma.history.findMany({
+        where: { type: { in: ['gen', 'edit'] } },
+        select: { id: true, userId: true, user: { select: { username: true } }, type: true, content: true, createdAt: true },
+        orderBy: { createdAt: 'desc' }, skip: (pageNum - 1) * pageSizeNum, take: pageSizeNum,
+      }),
+      prisma.history.count({ where: { type: { in: ['gen', 'edit'] } } }),
+    ])
+    res.json({ list, total, page: pageNum, pageSize: pageSizeNum })
+  } catch (e) { console.error(e); res.status(500).json({ error: '获取失败' }) }
+})
+
+router.delete('/ai-records/:id', adminAuthMiddleware, superAdminOnly, async (req, res) => {
+  try { await prisma.history.deleteMany({ where: { id: req.params.id } }); res.json({ message: '删除成功' }) }
+  catch (e) { console.error(e); res.status(500).json({ error: '删除失败' }) }
+})
+
 // ============ 管理员 PDF 下载 ============
 
 router.get('/pdf/fortune/:id', adminAuthMiddleware, async (req, res) => {

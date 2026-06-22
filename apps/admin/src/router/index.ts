@@ -57,6 +57,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '八卦问事' },
       },
       {
+        path: 'ai-records',
+        name: 'AIRecords',
+        component: () => import('@/views/ai-records/index.vue'),
+        meta: { title: 'AI 创作' },
+      },
+      {
         path: 'config',
         name: 'Config',
         component: () => import('@/views/config/index.vue'),

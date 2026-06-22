@@ -23,6 +23,7 @@ const menuItems = computed(() => {
     { path: '/fengshui-homes', icon: 'Picture', title: '居家风水' },
     { path: '/fortunes', icon: 'TrendCharts', title: '流年大运' },
     { path: '/divinations', icon: 'MagicStick', title: '八卦问事' },
+    { path: '/ai-records', icon: 'ChatLineSquare', title: 'AI 创作' },
   ]
   if (authStore.isSuper) {
     items.push({ path: '/admins', icon: 'UserFilled', title: '管理员管理' })
