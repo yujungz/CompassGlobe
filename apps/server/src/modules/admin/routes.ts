@@ -1009,17 +1009,28 @@ router.get('/divination-records/:id', adminAuthMiddleware, async (req, res) => {
 
 router.get('/ai-records', adminAuthMiddleware, async (req, res) => {
   try {
-    const { page = '1', pageSize = '20' } = req.query as Record<string, string>
+    const { page = '1', pageSize = '20', username = '', prompt = '', type = '', startDate = '', endDate = '' } = req.query as Record<string, string>
     const pageNum = Math.max(1, parseInt(page) || 1)
     const pageSizeNum = Math.min(100, Math.max(1, parseInt(pageSize) || 20))
-    const [list, total] = await Promise.all([
+    const where: any = { type: { in: ['gen', 'edit'] } }
+    if (username.trim()) where.user = { username: { contains: username.trim() } }
+    if (type) where.type = type
+    const tryParse = (s: string) => { const d = new Date(s); return isNaN(d.getTime()) ? null : d }
+    const sd = tryParse(startDate); if (sd) where.createdAt = { ...where.createdAt, gte: sd }
+    const ed = tryParse(endDate + 'T23:59:59.999Z'); if (ed) where.createdAt = { ...where.createdAt, lte: ed }
+    const [raw, total] = await Promise.all([
       prisma.history.findMany({
-        where: { type: { in: ['gen', 'edit'] } },
+        where,
         select: { id: true, userId: true, user: { select: { username: true } }, type: true, content: true, createdAt: true },
         orderBy: { createdAt: 'desc' }, skip: (pageNum - 1) * pageSizeNum, take: pageSizeNum,
       }),
-      prisma.history.count({ where: { type: { in: ['gen', 'edit'] } } }),
+      prisma.history.count({ where }),
     ])
+    let list = raw
+    if (prompt.trim()) {
+      const kw = prompt.trim().toLowerCase()
+      list = raw.filter(r => String((r.content as any)?.prompt || '').toLowerCase().includes(kw))
+    }
     res.json({ list, total, page: pageNum, pageSize: pageSizeNum })
   } catch (e) { console.error(e); res.status(500).json({ error: '获取失败' }) }
 })

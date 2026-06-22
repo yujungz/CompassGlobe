@@ -11,6 +11,12 @@ interface Record { id: string; userId: string; type: string; content: any; creat
 const list = ref<Record[]>([])
 const total = ref(0); const page = ref(1); const pageSize = ref(10); const loading = ref(false)
 const showDetail = ref(false); const detail = ref<Record | null>(null)
+const searchForm = ref({ username: '', prompt: '', type: '', startDate: null as Date | null, endDate: null as Date | null })
+
+function fmtLocal(d: Date): string {
+  const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
 onMounted(() => fetchList())
 
@@ -18,11 +24,22 @@ async function fetchList() {
   loading.value = true
   try {
     const params: Record<string, any> = { page: page.value, pageSize: pageSize.value }
+    if (searchForm.value.username) params.username = searchForm.value.username
+    if (searchForm.value.prompt) params.prompt = searchForm.value.prompt
+    if (searchForm.value.type) params.type = searchForm.value.type
+    let sd = searchForm.value.startDate
+    let ed = searchForm.value.endDate
+    if (sd && ed && sd instanceof Date && ed instanceof Date && ed < sd) { searchForm.value.endDate = new Date(sd); ed = new Date(sd) }
+    if (sd && typeof sd !== 'string') params.startDate = fmtLocal(sd)
+    if (ed && typeof ed !== 'string') params.endDate = fmtLocal(ed)
     const res: any = await request.get('/admin/ai-records', { params })
     list.value = res.list || []; total.value = res.total || 0
   } catch { ElMessage.error('加载失败') }
   finally { loading.value = false }
 }
+
+const handleSearch = () => { page.value = 1; fetchList() }
+const handleReset = () => { searchForm.value = { username: '', prompt: '', type: '', startDate: null, endDate: null }; page.value = 1; fetchList() }
 
 function openDetail(row: Record) { detail.value = row; showDetail.value = true }
 
@@ -45,6 +62,25 @@ function storageKey(rec: Record) { return rec.content?.storageKey || '' }
 
 <template>
   <div>
+    <el-card shadow="hover" class="search-card">
+      <el-form :inline="true" :model="searchForm">
+        <el-form-item label="用户名"><el-input v-model="searchForm.username" placeholder="模糊搜索" clearable style="width:140px" /></el-form-item>
+        <el-form-item label="提示词"><el-input v-model="searchForm.prompt" placeholder="模糊搜索" clearable style="width:160px" /></el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="searchForm.type" placeholder="全部" clearable style="width:100px">
+            <el-option label="文生图" value="gen" />
+            <el-option label="修图" value="edit" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="开始日期"><el-date-picker v-model="searchForm.startDate" type="date" placeholder="开始" style="width:140px" /></el-form-item>
+        <el-form-item label="结束日期"><el-date-picker v-model="searchForm.endDate" type="date" placeholder="结束" style="width:140px" /></el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
     <el-card shadow="hover">
       <el-table :data="list" v-loading="loading" stripe>
         <el-table-column prop="type" label="类型" width="80">
@@ -88,3 +124,7 @@ function storageKey(rec: Record) { return rec.content?.storageKey || '' }
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+.search-card { margin-bottom: 20px; }
+</style>
