@@ -24,9 +24,13 @@ const locating = ref(false)
 const locationMsg = ref('')
 
 // 定位按钮拖动
+function clampPos(l: number, b: number) {
+  return { left: Math.max(8, Math.min(l, window.innerWidth - 60)), bottom: Math.max(8, Math.min(b, window.innerHeight - 100)) }
+}
 const savedPos = localStorage.getItem('locate-btn-pos')
-const btnLeft = ref(savedPos ? parseFloat(savedPos.split(',')[0]) : 0)
-const btnBottom = ref(savedPos ? parseFloat(savedPos.split(',')[1]) : 100)
+const btnLeft = ref(savedPos ? clampPos(parseFloat(savedPos.split(',')[0]), 0).left : 8)
+const btnBottom = ref(savedPos ? clampPos(0, parseFloat(savedPos.split(',')[1])).bottom : 100)
+window.addEventListener('resize', () => { btnLeft.value = clampPos(btnLeft.value, 0).left; btnBottom.value = clampPos(0, btnBottom.value).bottom })
 const dragging = ref(false)
 const dragStartPos = ref({ x: 0, y: 0, time: 0 })
 const pointerMoved = ref(false)
@@ -46,8 +50,8 @@ function onDragMove(e: PointerEvent) {
   }
   const dx = e.clientX - dragStartPos.value.x
   const dy = e.clientY - dragStartPos.value.y
-  btnLeft.value = Math.max(0, btnLeft.value - dx)
-  btnBottom.value = Math.max(0, btnBottom.value - dy)
+  btnLeft.value = Math.max(8, Math.min(window.innerWidth - 60, btnLeft.value + dx))
+  btnBottom.value = Math.max(8, Math.min(window.innerHeight - 100, btnBottom.value - dy))
   dragStartPos.value.x = e.clientX
   dragStartPos.value.y = e.clientY
 }
