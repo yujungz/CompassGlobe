@@ -41,6 +41,10 @@ async function fetchList() {
 const handleSearch = () => { page.value = 1; fetchList() }
 const handleReset = () => { searchForm.value = { username: '', prompt: '', type: '', startDate: null, endDate: null }; page.value = 1; fetchList() }
 
+const selectedIds = ref<string[]>([])
+const deleting = ref(false)
+function handleSelectionChange(rows: Record[]) { selectedIds.value = rows.map(r => r.id) }
+
 function openDetail(row: Record) { detail.value = row; showDetail.value = true }
 
 async function handleDelete(row: Record) {
@@ -49,6 +53,18 @@ async function handleDelete(row: Record) {
     await request.delete(`/admin/ai-records/${row.id}`)
     ElMessage.success('已删除'); fetchList()
   } catch { /* cancelled */ }
+}
+
+async function handleBatchDelete() {
+  if (selectedIds.value.length === 0) { ElMessage.warning('请先选择要删除的记录'); return }
+  try {
+    await ElMessageBox.confirm(`确定删除选中的 ${selectedIds.value.length} 条记录吗？`, '批量删除', { type: 'warning', confirmButtonText: '确认删除' })
+    deleting.value = true
+    await Promise.all(selectedIds.value.map(id => request.delete(`/admin/ai-records/${id}`).catch(() => {})))
+    ElMessage.success(`已删除 ${selectedIds.value.length} 条记录`)
+    selectedIds.value = []; fetchList()
+  } catch { /* cancelled */ }
+  finally { deleting.value = false }
 }
 
 function typeLabel(t: string) {
@@ -82,7 +98,11 @@ function storageKey(rec: Record) { return rec.content?.storageKey || '' }
     </el-card>
 
     <el-card shadow="hover">
-      <el-table :data="list" v-loading="loading" stripe>
+      <div v-if="isSuper" style="margin-bottom:12px">
+        <el-button type="danger" :disabled="selectedIds.length === 0" :loading="deleting" @click="handleBatchDelete">批量删除（{{ selectedIds.length }}）</el-button>
+      </div>
+      <el-table :data="list" v-loading="loading" stripe @selection-change="handleSelectionChange">
+        <el-table-column v-if="isSuper" type="selection" width="50" />
         <el-table-column prop="type" label="类型" width="80">
           <template #default="{ row }">{{ typeLabel(row.type) }}</template>
         </el-table-column>
