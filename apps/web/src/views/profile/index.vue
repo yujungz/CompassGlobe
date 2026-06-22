@@ -488,7 +488,7 @@ export default {}
 
 .profile-header {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  padding: 32px 20px;
+  padding: 32px 20px 32px 60px;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -518,8 +518,8 @@ export default {}
 }
 
 .home-icon {
-  position: absolute; top: 12px; left: 16px; z-index: 5;
-  background: none; border: none; font-size: 22px;
+  position: absolute; top: 28px; left: 20px; z-index: 5;
+  background: none; border: none; font-size: 28px;
   cursor: pointer; padding: 4px; line-height: 1;
   &:hover { opacity: .7; }
 }
