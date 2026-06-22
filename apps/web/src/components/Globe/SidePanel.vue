@@ -209,7 +209,7 @@ const handleAnalyze = () => {
       </template>
       </template>
 
-        <button class="analyze-btn" @click="handleAnalyze">开始风水分析</button>
+        <button class="analyze-btn" @click="handleAnalyze">风水分析</button>
       </div>
     </div>
 </template>
