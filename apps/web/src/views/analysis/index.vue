@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+defineOptions({ name: 'Analysis' })
 import { useRoute } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
 import { globeApi, type WeatherInfo } from '@/api/globe'
 import { analysisApi, type AnalysisRecord } from '@/api/analysis'
 import { getBaguaDirection } from '@/utils/bagua'
+import { useGlobalLoading } from '@/composables/useGlobalLoading'
+
+const { startLoading, stopLoading } = useGlobalLoading()
 
 const route = useRoute()
 
@@ -47,6 +51,7 @@ const handleAnalyze = async () => {
 
   if (!confirm('确认使用当前位置进行风水分析吗？将消耗 1 次咨询次数。')) return
 
+  startLoading('正在进行地理风水分析，请耐心等候…')
   analyzing.value = true
   try {
     result.value = await analysisApi.analyze({
@@ -61,6 +66,7 @@ const handleAnalyze = async () => {
     const err = e as { response?: { data?: { error?: string } } }
     errorMsg.value = err?.response?.data?.error || '分析失败，请稍后重试'
   } finally {
+    stopLoading()
     analyzing.value = false
   }
 }

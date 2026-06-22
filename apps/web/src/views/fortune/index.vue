@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+defineOptions({ name: 'Fortune' })
 import NavBar from '@/components/common/NavBar.vue'
 import { fortuneApi, type BaZiResult, type FortuneResult, type FortuneRecordItem } from '@/api/fortune'
 import { authApi } from '@/api/auth'
+import { useGlobalLoading } from '@/composables/useGlobalLoading'
+
+const { startLoading, stopLoading } = useGlobalLoading()
 import { useAuth } from '@/composables'
 
 const { user, refreshUser } = useAuth()
@@ -90,6 +94,7 @@ async function handlePredict() {
   }
   if (!confirm('确认进行流年大运分析吗？将消耗 1 次咨询次数。')) return
   error.value = ''
+  startLoading('AI 正在推算流年大运，请耐心等候…（约 30-90 秒）')
   predicting.value = true
   try {
     currentResult.value = await fortuneApi.predict({
@@ -112,6 +117,7 @@ async function handlePredict() {
   } catch (e: any) {
     error.value = e?.response?.data?.error || '预测失败，请稍后重试'
   } finally {
+    stopLoading()
     predicting.value = false
   }
 }

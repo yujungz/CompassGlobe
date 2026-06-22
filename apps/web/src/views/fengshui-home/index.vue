@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, onUnmounted } from 'vue'
+defineOptions({ name: 'FengshuiHome' })
 import NavBar from '@/components/common/NavBar.vue'
 import { fengshuiHomeApi, type FengshuiHomeRecord } from '@/api/fengshui-home'
 import { useAuth } from '@/composables'
+import { useGlobalLoading } from '@/composables/useGlobalLoading'
+
+const { startLoading, stopLoading } = useGlobalLoading()
 
 const { user, refreshUser } = useAuth()
 
@@ -140,6 +144,7 @@ async function handleAnalyze() {
   }
   if (!confirm(`确认使用 ${selectedFiles.value.length} 张图片进行居家风水分析吗？将消耗 1 次咨询次数。`)) return
   error.value = ''
+  startLoading('正在进行居家风水分析，请耐心等候…')
   analyzing.value = true
   try {
     const result = await fengshuiHomeApi.analyze(
@@ -152,6 +157,7 @@ async function handleAnalyze() {
   } catch (e: any) {
     error.value = e?.response?.data?.error || '分析失败，请稍后重试'
   } finally {
+    stopLoading()
     analyzing.value = false
   }
 }

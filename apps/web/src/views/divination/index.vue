@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
+defineOptions({ name: 'Divination' })
 import { divinationApi, type HexagramResult, type DivinationAskResult, type DivinationRecordItem } from '@/api/divination'
 import { authApi } from '@/api/auth'
+import { useGlobalLoading } from '@/composables/useGlobalLoading'
+
+const { startLoading, stopLoading } = useGlobalLoading()
 import { useAuth } from '@/composables'
 
 const { user, refreshUser } = useAuth()
@@ -105,6 +109,7 @@ async function handleAsk() {
   if (!confirm('确认进行 AI 解卦吗？将消耗 1 次咨询次数。')) return
 
   error.value = ''
+  startLoading('AI 正在解读卦象，请耐心等候…（约 20-60 秒）')
   asking.value = true
   try {
     const result = await divinationApi.ask({
@@ -119,6 +124,7 @@ async function handleAsk() {
   } catch (e: any) {
     error.value = e?.response?.data?.error || 'AI 解读失败'
   } finally {
+    stopLoading()
     asking.value = false
   }
 }

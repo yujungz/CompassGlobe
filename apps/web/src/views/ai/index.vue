@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
+defineOptions({ name: 'AiView' })
 import ChatPanel from '@/components/Chat/ChatPanel.vue'
 import { aiApi } from '@/api/ai'
 import { conversationApi, type ConversationItem } from '@/api/conversation'
 import request from '@/api/request'
+import { useGlobalLoading } from '@/composables/useGlobalLoading'
+
+const { startLoading, stopLoading } = useGlobalLoading()
 
 const tab = ref<'gen' | 'edit' | 'chat'>('gen')
 
@@ -38,15 +42,17 @@ const handleGenerate = async () => {
   if (err) { genError.value = err; return }
   if (!confirm('确认开始文生图吗？将消耗 1 次创作次数。')) return
   genError.value = ''
+  startLoading('AI 正在生成图片，请耐心等候…（约 10-60 秒）')
   genLoading.value = true
   try {
     const res = await aiApi.generateImage(genPrompt.value, { size: genSize.value })
     genImage.value = res.image
-    loadGenHistoryList() // 刷新历史
+    loadGenHistoryList()
   } catch (e) {
     const err = e as { response?: { data?: { error?: string } } }
     genError.value = err?.response?.data?.error || '生成失败，请稍后重试'
   } finally {
+    stopLoading()
     genLoading.value = false
   }
 }
@@ -245,15 +251,17 @@ const handleEdit = async () => {
   if (err) { editError.value = err; return }
   if (!confirm('确认开始修图吗？将消耗 1 次创作次数。')) return
   editError.value = ''
+  startLoading('AI 正在处理修图，请耐心等候…（约 10-60 秒）')
   editLoading.value = true
   try {
     const res = await aiApi.editImage({ prompt: editPrompt.value, image: editSource.value })
     editResult.value = res.image
-    loadEditHistoryList() // 刷新历史
+    loadEditHistoryList()
   } catch (e) {
     const err = e as { response?: { data?: { error?: string } } }
     editError.value = err?.response?.data?.error || '修图失败，请稍后重试'
   } finally {
+    stopLoading()
     editLoading.value = false
   }
 }
