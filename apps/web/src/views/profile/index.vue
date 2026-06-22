@@ -92,7 +92,7 @@ async function saveProfile() {
   }
   saving.value = true
   try {
-    await request.put('/user/profile', {
+    const res: any = await request.put('/user/profile', {
       username: form.value.username.trim(),
       realName: form.value.realName || null,
       nickname: form.value.nickname || null,
@@ -111,6 +111,29 @@ async function saveProfile() {
       industry: form.value.industry || null,
       profession: form.value.profession || null,
     })
+    // 用 API 返回数据更新本地 profile，无需刷新
+    if (res) {
+      profile.value = { ...profile.value, ...res }
+      form.value = {
+        username: res.username || '',
+        realName: res.realName || '',
+        nickname: res.nickname || '',
+        gender: res.gender || '',
+        birthYear: res.birthYear,
+        birthMonth: res.birthMonth,
+        birthDay: res.birthDay,
+        birthHour: res.birthHour,
+        phone: res.phone || '',
+        email: res.email || '',
+        wechat: res.wechat || '',
+        qq: res.qq || '',
+        birthAddress: res.birthAddress || '',
+        company: res.company || '',
+        companyAddress: res.companyAddress || '',
+        industry: res.industry || '',
+        profession: res.profession || '',
+      }
+    }
     await refreshUser()
     editMode.value = false
     alert('保存成功')
