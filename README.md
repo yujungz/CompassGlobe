@@ -187,6 +187,96 @@ docker exec compass-server npx prisma studio        # 管理界面
 - **天地图防盗刷**：`TDT_KEY` 会下发到前端浏览器，上线前请在天地图控制台为该 Key 配置**域名白名单**。
 - **邮箱验证码**：依赖 `SMTP_*`；短信验证码为模拟实现。
 
+## HTTPS 配置（SSL 证书）
+
+项目支持通过 HTTPS（端口 8112）访问，用于手机端摄像头、陀螺仪等需要安全上下文的功能。
+
+### 域名更换时重新生成证书
+
+证书文件存放在 `ssl/` 目录（已 gitignore，不入库），Nginx 容器通过 volume 挂载读取。
+
+#### 方案一：Let's Encrypt 免费证书（推荐，浏览器无警告）
+
+> 前提：域名已解析到服务器 IP，且服务器的 80 端口可临时释放。
+
+```bash
+cd ~/compass
+
+# 1. 查看并停止占用 80 端口的服务
+sudo ss -tlnp | grep :80          # 查看占用进程
+sudo systemctl stop nginx          # 停掉占用进程（按实际情况）
+
+# 2. 停止 compass-nginx 释放 80 端口
+docker stop compass-nginx
+
+# 3. 用 Docker 版 certbot 申请证书（避免系统 certbot 依赖问题）
+docker run -it --rm \
+  -v /etc/letsencrypt:/etc/letsencrypt \
+  -v /var/lib/letsencrypt:/var/lib/letsencrypt \
+  -p 80:80 \
+  certbot/certbot certonly --standalone \
+  -d 你的域名.com \
+  --agree-tos -m 你的邮箱
+
+# 4. 复制证书到项目目录
+mkdir -p ssl
+cp /etc/letsencrypt/live/你的域名.com/fullchain.pem ssl/claw.crt
+cp /etc/letsencrypt/live/你的域名.com/privkey.pem ssl/claw.key
+
+# 5. 更新 nginx 配置中的域名
+sed -i 's/旧域名/你的域名.com/g' docker/nginx.conf
+
+# 6. 恢复 80 端口服务并启动 compass-nginx
+sudo systemctl start nginx         # 恢复原服务（如有）
+docker compose up -d --build nginx
+```
+
+#### 证书续期（Let's Encrypt 有效期 90 天）
+
+到期前 30 天内执行：
+
+```bash
+cd ~/compass
+
+# 1. 临时释放 80 端口
+docker stop compass-nginx
+sudo systemctl stop nginx          # 如有其他服务占用
+
+# 2. 续期
+docker run -it --rm \
+  -v /etc/letsencrypt:/etc/letsencrypt \
+  -p 80:80 \
+  certbot/certbot renew
+
+# 3. 复制新证书
+cp /etc/letsencrypt/live/你的域名.com/fullchain.pem ssl/claw.crt
+cp /etc/letsencrypt/live/你的域名.com/privkey.pem ssl/claw.key
+
+# 4. 恢复服务
+sudo systemctl start nginx
+docker compose up -d --build nginx
+```
+
+> `certbot renew` 只在到期前 30 天内才会真正续期，提前执行也安全。
+
+#### 方案二：自签证书（快速，浏览器会提示不安全）
+
+```bash
+cd ~/compass
+mkdir -p ssl
+openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+  -keyout ssl/claw.key -out ssl/claw.crt \
+  -subj "/CN=你的域名.com"
+
+# 更新域名
+sed -i 's/旧域名/你的域名.com/g' docker/nginx.conf
+
+# 重建 nginx
+docker compose up -d --build nginx
+```
+
+访问 `https://你的域名.com:8112/front`，浏览器点击「高级 → 继续访问」即可。
+
 ## 认证方式
 
 - 手机号 + 短信验证码
