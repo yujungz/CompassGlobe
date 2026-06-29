@@ -733,6 +733,12 @@ router.post('/test/qweather', adminAuthMiddleware, async (req, res) => {
     // 用 Node.js 原生 crypto 生成 Ed25519 JWT（与 globe 模块一致）
     const fs = await import('fs')
     const crypto = await import('node:crypto')
+
+    // 检查路径是否为文件（Docker 挂载文件不存在时会创建目录）
+    const stat = fs.statSync(privateKeyPath)
+    if (stat.isDirectory()) {
+      throw new Error('私钥文件不存在（Docker 将挂载路径创建为目录）。请在宿主机创建 secrets/qweather-ed25519.pem 文件后重新部署')
+    }
     const privateKey = fs.readFileSync(privateKeyPath, 'utf8')
 
     function b64url(v: Record<string, unknown>): string {

@@ -70,6 +70,10 @@ const getQWeatherToken = async (): Promise<string> => {
     return qweatherTokenCache.token
   }
   const [kid, sub] = await Promise.all([qwCid(), qwPid()])
+  const keyStat = fs.statSync(QWEATHER_PRIVATE_KEY_PATH)
+  if (keyStat.isDirectory()) {
+    throw new Error('私钥文件不存在')
+  }
   const privateKey = crypto.createPrivateKey({
     key: fs.readFileSync(QWEATHER_PRIVATE_KEY_PATH, 'utf8'),
     format: 'pem',
