@@ -56,8 +56,20 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
 
     let aiResult: string
     try {
-      const messages = buildFengshuiHomePrompt(descriptions, imageBuffers, mimeTypes)
-      aiResult = await chatCompletion(messages, { temperature: 0.7, timeoutMs: 180000 })
+      // 先用 OpenAI 格式尝试
+      let messages = buildFengshuiHomePrompt(descriptions, imageBuffers, mimeTypes, 'openai')
+      try {
+        aiResult = await chatCompletion(messages, { temperature: 0.7, timeoutMs: 180000 })
+        // 检查是否返回了 Unsupported Image
+        if (aiResult.includes('[Unsupported Image]') || aiResult.includes('Unsupported')) {
+          throw new Error('Unsupported image format, trying anthropic')
+        }
+      } catch {
+        // 回退到 Anthropic 格式
+        console.log('Trying Anthropic image format...')
+        messages = buildFengshuiHomePrompt(descriptions, imageBuffers, mimeTypes, 'anthropic')
+        aiResult = await chatCompletion(messages, { temperature: 0.7, timeoutMs: 180000 })
+      }
     } catch (e) {
       console.error('AI 分析失败:', e)
       return res.status(502).json({ error: 'AI 分析失败，请稍后重试' })

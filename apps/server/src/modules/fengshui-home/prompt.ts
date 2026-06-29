@@ -1,9 +1,10 @@
-import type { ChatMessage, ChatContentPart } from '../../lib/ai.js'
+import type { ChatMessage } from '../../lib/ai.js'
 
 export function buildFengshuiHomePrompt(
   descriptions: string[],
   imageBuffers: Buffer[],
-  mimeTypes: string[]
+  mimeTypes: string[],
+  format: 'openai' | 'anthropic' = 'openai'
 ): ChatMessage[] {
   // 构建文字说明
   let descText = ''
@@ -13,21 +14,31 @@ export function buildFengshuiHomePrompt(
   }
 
   // 用户消息：文字 + 图片
-  const userParts: ChatContentPart[] = [
+  const userParts: any[] = [
     {
       type: 'text',
       text: `我上传了${imageBuffers.length}张室内照片，请根据这些照片进行居家风水分析。\n\n${descText}`,
     },
   ]
 
-  // 添加每张图片的 base64
+  // 添加每张图片
   for (let i = 0; i < imageBuffers.length; i++) {
     const b64 = imageBuffers[i].toString('base64')
     const mime = mimeTypes[i] || 'image/jpeg'
-    userParts.push({
-      type: 'image',
-      source: { type: 'base64', media_type: mime, data: b64 },
-    })
+
+    if (format === 'openai') {
+      // OpenAI 标准格式
+      userParts.push({
+        type: 'image_url',
+        image_url: { url: `data:${mime};base64,${b64}` },
+      })
+    } else {
+      // Anthropic 格式
+      userParts.push({
+        type: 'image',
+        source: { type: 'base64', media_type: mime, data: b64 },
+      })
+    }
   }
 
   return [
