@@ -29,11 +29,11 @@ export interface DivinationRecordItem {
 }
 
 export const divinationApi = {
-  generateHexagram() {
-    return request.post<HexagramResult>('/divination/generate-hexagram')
+  generateHexagram(data?: { name?: string; gender?: string; question?: string }) {
+    return request.post<HexagramResult & { recordId?: string }>('/divination/generate-hexagram', data || {})
   },
 
-  ask(data: { name: string; gender: string; question: string; hexagram: HexagramResult }) {
+  ask(data: { name: string; gender: string; question: string; hexagram: HexagramResult; recordId?: string }) {
     return request.post<DivinationAskResult>('/divination/ask', data, { timeout: 180000 })
   },
 

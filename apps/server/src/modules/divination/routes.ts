@@ -9,11 +9,28 @@ import { buildDivinationPrompt } from './prompt.js'
 
 const router: Router = Router()
 
-// 生成卦象（不含 AI，不消耗次数，不保存）
-router.post('/generate-hexagram', authMiddleware, (_req: AuthRequest, res) => {
+// 生成卦象（不含 AI，不消耗次数，保存记录供历史查看）
+router.post('/generate-hexagram', authMiddleware, async (req: AuthRequest, res) => {
   try {
+    const { name, gender, question } = req.body
     const hexagram = generateHexagram()
-    res.json(hexagram)
+
+    // 保存记录（即使未解卦，也保存卦象信息）
+    if (name && question) {
+      const record = await prisma.divinationRecord.create({
+        data: {
+          userId: req.userId!,
+          name,
+          gender: gender || 'male',
+          question,
+          hexagram: JSON.parse(JSON.stringify(hexagram)),
+          result: JSON.parse('null'),
+        },
+      })
+      res.json({ ...hexagram, recordId: record.id })
+    } else {
+      res.json(hexagram)
+    }
   } catch (error: any) {
     console.error('Generate hexagram error:', error)
     res.status(500).json({ error: '卦象生成失败' })
@@ -23,7 +40,7 @@ router.post('/generate-hexagram', authMiddleware, (_req: AuthRequest, res) => {
 // 提交问题 + 卦象，获取 AI 解读
 router.post('/ask', authMiddleware, async (req: AuthRequest, res) => {
   try {
-    const { name, gender, question, hexagram } = req.body
+    const { name, gender, question, hexagram, recordId } = req.body
 
     if (!name || !gender || !question || !hexagram) {
       return res.status(400).json({ error: '请填写完整信息' })
@@ -51,17 +68,25 @@ router.post('/ask', authMiddleware, async (req: AuthRequest, res) => {
     }
 
     try {
-
-      const record = await prisma.divinationRecord.create({
-        data: {
-          userId: req.userId!,
-          name,
-          gender,
-          question,
-          hexagram,
-          result: { analysis: aiResult },
-        },
-      })
+      let record
+      // 如果有 recordId，说明起卦时已保存记录，更新即可
+      if (recordId) {
+        record = await prisma.divinationRecord.update({
+          where: { id: recordId },
+          data: { result: { analysis: aiResult } },
+        })
+      } else {
+        record = await prisma.divinationRecord.create({
+          data: {
+            userId: req.userId!,
+            name,
+            gender,
+            question,
+            hexagram,
+            result: { analysis: aiResult },
+          },
+        })
+      }
 
       res.json({
         id: record.id,

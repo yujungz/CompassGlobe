@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
 defineOptions({ name: 'Divination' })
 import { divinationApi, type HexagramResult, type DivinationAskResult, type DivinationRecordItem } from '@/api/divination'
@@ -15,13 +15,15 @@ const { user, refreshUser } = useAuth()
 const form = ref({ name: '', gender: 'male', question: '' })
 const asking = ref(false)
 const error = ref('')
+const tossCompleted = ref(false) // 起卦是否完成
+const currentRecordId = ref<string | null>(null) // 起卦时保存的记录ID
 
 // Coin animation
 const tossing = ref(false)
 const tossCountdown = ref(0)
-const coins = ref([0, 0, 0]) // 3 coin results
-const tossRound = ref(0) // current round (1-6)
-const tossResults = ref<number[]>([]) // 6 round results
+const coins = ref([0, 0, 0])
+const tossRound = ref(0)
+const tossResults = ref<number[]>([])
 
 // Hexagram
 const hexagram = ref<HexagramResult | null>(null)
@@ -29,6 +31,10 @@ const showHexagram = ref(false)
 
 // Result
 const currentResult = ref<DivinationAskResult | null>(null)
+
+// DOM refs
+const tossBtnRef = ref<HTMLElement | null>(null)
+const askBtnRef = ref<HTMLElement | null>(null)
 
 // History
 const history = ref<DivinationRecordItem[]>([])
@@ -55,6 +61,10 @@ async function startToss() {
     error.value = '请填写所问之事'
     return
   }
+  if (form.value.question.trim().length < 2) {
+    error.value = '所问之事至少需要 2 个字'
+    return
+  }
   if (!confirm('确认开始起卦吗？请摒除杂念，集中注意力默想所求之事。')) return
   error.value = ''
   tossResults.value = []
@@ -63,10 +73,17 @@ async function startToss() {
   showHexagram.value = false
   hexagram.value = null
   currentResult.value = null
+  tossCompleted.value = false
+  currentRecordId.value = null
 
   try {
-    // Call API to generate hexagram (this does the actual random generation)
-    const result = await divinationApi.generateHexagram()
+    // Call API to generate hexagram (保存记录)
+    const result = await divinationApi.generateHexagram({
+      name: form.value.name,
+      gender: form.value.gender,
+      question: form.value.question.trim(),
+    })
+    if (result.recordId) currentRecordId.value = result.recordId
 
     // Animate 6 rounds of coin toss
     for (let i = 0; i < 6; i++) {
@@ -93,11 +110,29 @@ async function startToss() {
     // Show hexagram
     hexagram.value = result
     showHexagram.value = true
+    tossCompleted.value = true
+    // 焦点移到 AI解卦 按钮
+    await nextTick()
+    askBtnRef.value?.focus()
+    // 刷新历史
+    loadHistory()
   } catch (e: any) {
     error.value = '起卦失败，请重试'
   } finally {
     tossing.value = false
   }
+}
+
+function resetToss() {
+  tossCompleted.value = false
+  hexagram.value = null
+  showHexagram.value = false
+  currentResult.value = null
+  tossResults.value = []
+  currentRecordId.value = null
+  error.value = ''
+  // 焦点移回开始起卦
+  nextTick(() => tossBtnRef.value?.focus())
 }
 
 function delay(ms: number) {
@@ -117,6 +152,7 @@ async function handleAsk() {
       gender: form.value.gender,
       question: form.value.question.trim(),
       hexagram: hexagram.value,
+      recordId: currentRecordId.value || undefined,
     })
     currentResult.value = result
     await refreshUser()
@@ -134,6 +170,25 @@ async function loadHistory() {
     const res = await divinationApi.getList(1, 20)
     history.value = res.list
   } catch { /* ignore */ }
+}
+
+async function loadHistoryRecord(record: DivinationRecordItem) {
+  form.value.name = record.name
+  form.value.gender = record.gender
+  form.value.question = record.question
+  hexagram.value = record.hexagram
+  showHexagram.value = true
+  tossCompleted.value = true
+  currentRecordId.value = record.id
+  tossResults.value = [0,1,2,3,4,5]
+  if (record.result?.analysis) {
+    currentResult.value = { id: record.id, hexagram: record.hexagram, result: record.result, createdAt: record.createdAt }
+  } else {
+    currentResult.value = null
+  }
+  await nextTick()
+  askBtnRef.value?.focus()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 async function deleteRecord(record: DivinationRecordItem) {
@@ -246,7 +301,7 @@ function changingLineClass(index: number): string {
           </div>
         </div>
 
-        <button class="btn-primary" :disabled="tossing || asking" @click="startToss">
+        <button ref="tossBtnRef" class="btn-primary" :disabled="tossing || asking || tossCompleted" @click="startToss">
           {{ tossing ? '起卦中...' : '🎯 开始起卦' }}
         </button>
       </section>
@@ -279,9 +334,12 @@ function changingLineClass(index: number): string {
           </div>
         </div>
 
-        <button class="btn-primary" :disabled="asking" @click="handleAsk" style="margin-top:12px">
-          {{ asking ? 'AI 解读中…（约20-60秒）' : '🔮 AI 解卦' }}
-        </button>
+        <div class="hexagram-actions" style="margin-top:12px;display:flex;gap:12px">
+          <button ref="askBtnRef" class="btn-primary" :disabled="asking" @click="handleAsk">
+            {{ asking ? 'AI 解读中…（约20-60秒）' : '🔮 AI 解卦' }}
+          </button>
+          <button class="btn-secondary" @click="resetToss">🔄 重新起卦</button>
+        </div>
       </section>
 
       <p v-if="error" class="error-msg">{{ error }}</p>
@@ -307,7 +365,8 @@ function changingLineClass(index: number): string {
               <span class="history-date">{{ new Date(record.createdAt).toLocaleString('zh-CN') }}</span>
             </div>
             <div class="history-actions">
-              <button class="action-btn" @click="downloadPdf(record.id)">PDF</button>
+              <button class="action-btn" @click="loadHistoryRecord(record)">读取</button>
+              <button v-if="record.result?.analysis" class="action-btn" @click="downloadPdf(record.id)">PDF</button>
               <button class="action-btn danger" @click="deleteRecord(record)">删除</button>
             </div>
           </div>
