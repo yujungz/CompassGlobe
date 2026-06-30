@@ -62,7 +62,7 @@ async function startToss() {
     return
   }
   if (form.value.question.trim().length < 2) {
-    error.value = '所问之事至少需要 2 个字'
+    error.value = '所问之事未描述清楚！'
     return
   }
   if (!confirm('确认开始起卦吗？请摒除杂念，集中注意力默想所求之事。')) return
