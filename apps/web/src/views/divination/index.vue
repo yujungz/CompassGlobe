@@ -131,7 +131,7 @@ function resetToss() {
   tossResults.value = []
   currentRecordId.value = null
   error.value = ''
-  // 焦点移回开始起卦
+  form.value.question = '' // 清空所问之事
   nextTick(() => tossBtnRef.value?.focus())
 }
 
@@ -335,7 +335,7 @@ function changingLineClass(index: number): string {
         </div>
 
         <div class="hexagram-actions" style="margin-top:12px;display:flex;gap:12px">
-          <button ref="askBtnRef" class="btn-primary" :disabled="asking" @click="handleAsk">
+          <button ref="askBtnRef" class="btn-primary ask-btn" :disabled="asking || !!currentResult" @click="handleAsk">
             {{ asking ? 'AI 解读中…（约20-60秒）' : '🔮 AI 解卦' }}
           </button>
           <button class="btn-secondary" @click="resetToss">🔄 重新起卦</button>
@@ -460,6 +460,8 @@ function changingLineClass(index: number): string {
   &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(74,144,217,.4); }
   &:disabled { opacity: .6; cursor: not-allowed; }
 }
+.ask-btn { white-space: nowrap; }
+
 .btn-secondary {
   padding: 10px 20px; border: 1px solid rgba(255,255,255,.2);
   background: transparent; color: #fff; border-radius: 8px;
