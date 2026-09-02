@@ -277,6 +277,11 @@ function showUsage() {
   flex-direction: column;
   gap: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  // 限制在视口内并可滚动，避免小屏手机上底部的帮助入口被裁掉
+  max-height: calc(100vh - 56px);
+  max-height: calc(100dvh - 56px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 
   .mobile-nav-link {
     color: rgba(255, 255, 255, 0.8);
