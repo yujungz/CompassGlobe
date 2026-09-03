@@ -289,6 +289,13 @@ function showUsage() {
     padding: 12px 16px;
     border-radius: 4px;
     transition: background 0.2s;
+    // <button>（使用说明/关于我们/退出登录）默认带浅色背景与边框，
+    // 必须重置，否则白底配白字看不清
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
 
     &:hover {
       background: rgba(255, 255, 255, 0.1);
