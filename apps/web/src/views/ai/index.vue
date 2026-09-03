@@ -168,6 +168,18 @@ function stopCamera() {
   cameraActive.value = false
 }
 
+// 切换图片来源 tab：离开「拍摄」时停掉摄像头，避免相机指示灯常亮
+function switchSourceTab(t: 'local' | 'camera' | 'gen' | 'url') {
+  if (editSourceTab.value === 'camera' && t !== 'camera') {
+    stopCamera()
+    cameraEnabled.value = false
+  }
+  editSourceTab.value = t
+  editSource.value = ''
+  editResult.value = ''
+  if (t === 'gen') loadGenHistory()
+}
+
 function capturePhoto() {
   const video = cameraVideo.value
   if (!video) { editError.value = '摄像头未就绪'; return }
@@ -181,6 +193,9 @@ function capturePhoto() {
   editSource.value = canvas.toDataURL('image/jpeg', 0.9)
   editResult.value = ''
   editError.value = ''
+  // 拍照后立即关闭摄像头，让拍摄结果显示出来（相机开启时预览隐藏结果图）
+  stopCamera()
+  cameraEnabled.value = false
 }
 
 // 文生图历史
@@ -337,9 +352,32 @@ async function deleteHistoryItem(id: string) {
   } catch (e: any) { alert(e?.response?.data?.error || '删除失败') }
 }
 
-// 点击历史图片在新窗口中查看大图
-function openHistoryImage(key: string) {
-  if (key) window.open(`/api/storage/${encodeURIComponent(key)}`, '_blank')
+// ===== 历史图片展示 =====
+// 加载失败（文件损坏/丢失）的记录 id，缩略图显示占位符
+const brokenImages = ref(new Set<string>())
+
+function storageUrl(key?: string): string {
+  return key ? `/api/storage/${encodeURIComponent(key)}` : ''
+}
+
+function markBroken(id: string) {
+  brokenImages.value.add(id)
+}
+
+// 点击文生图历史：在结果区显示图片，并回填提示词
+function openGenRecord(rec: any) {
+  const url = storageUrl(rec.content?.storageKey)
+  if (!url) return
+  genImage.value = url
+  genPrompt.value = rec.content?.prompt || ''
+}
+
+// 点击修图历史：在结果区显示图片（原为新窗口打开，易被拦截），并回填提示词
+function openEditRecord(rec: any) {
+  const url = storageUrl(rec.content?.storageKey)
+  if (!url) return
+  editResult.value = url
+  editPrompt.value = rec.content?.prompt || ''
 }
 
 // 加载对话列表（切换到对话tab时）
@@ -408,7 +446,14 @@ const onEditTab = () => {
           <div v-else-if="genHistoryList.length === 0" class="empty">暂无文生图记录</div>
           <div v-else class="gen-history-grid">
             <div v-for="rec in genHistoryList" :key="rec.id" class="history-item">
-              <img :src="'/api/storage/' + (rec.content?.storageKey || '')" alt="历史" class="history-thumb" @click="genImage = '/api/storage/' + (rec.content?.storageKey || ''); genPrompt.value = rec.content?.prompt || ''" />
+              <img
+                v-if="!brokenImages.has(rec.id) && storageUrl(rec.content?.storageKey)"
+                :src="storageUrl(rec.content?.storageKey)"
+                alt="历史" class="history-thumb"
+                @click="openGenRecord(rec)"
+                @error="markBroken(rec.id)"
+              />
+              <div v-else class="history-thumb history-placeholder">图片已失效</div>
               <div class="history-actions-row">
                 <span class="history-date">{{ new Date(rec.createdAt).toLocaleString('zh-CN') }}</span>
                 <button class="del-btn" @click.stop="deleteHistoryItem(rec.id)">×</button>
@@ -422,10 +467,10 @@ const onEditTab = () => {
       <section v-else-if="tab === 'edit'" class="card">
         <!-- 图片来源选择 -->
         <div class="source-tabs">
-          <button :class="{ active: editSourceTab === 'local' }" @click="editSourceTab = 'local'; editSource = ''; editResult = ''">本地</button>
-          <button :class="{ active: editSourceTab === 'camera' }" @click="editSourceTab = 'camera'; editSource = ''; editResult = ''">拍摄</button>
-          <button :class="{ active: editSourceTab === 'gen' }" @click="editSourceTab = 'gen'; editSource = ''; editResult = ''; loadGenHistory()">文生图</button>
-          <button :class="{ active: editSourceTab === 'url' }" @click="editSourceTab = 'url'; editSource = ''; editResult = ''">在线</button>
+          <button :class="{ active: editSourceTab === 'local' }" @click="switchSourceTab('local')">本地</button>
+          <button :class="{ active: editSourceTab === 'camera' }" @click="switchSourceTab('camera')">拍摄</button>
+          <button :class="{ active: editSourceTab === 'gen' }" @click="switchSourceTab('gen')">文生图</button>
+          <button :class="{ active: editSourceTab === 'url' }" @click="switchSourceTab('url')">在线</button>
         </div>
 
         <!-- 本地选择 -->
@@ -464,13 +509,16 @@ const onEditTab = () => {
           <p v-if="!genHistoryLoaded" class="upload-hint">点击上方「文生图」加载历史</p>
           <div v-if="showGenPicker" class="gen-grid">
             <div v-if="genHistory.length === 0" class="upload-hint">暂无文生图历史，请先生成图片</div>
-            <img
-              v-for="rec in genHistory" :key="rec.id"
-              :src="'/api/storage/' + (rec.content?.storageKey || '')"
-              :class="{ selected: editSource === '/api/storage/' + (rec.content?.storageKey || '') }"
-              class="gen-thumb"
-              @click="selectGenImage(rec)"
-            />
+            <template v-for="rec in genHistory" :key="rec.id">
+              <img
+                v-if="!brokenImages.has(rec.id) && storageUrl(rec.content?.storageKey)"
+                :src="storageUrl(rec.content?.storageKey)"
+                class="gen-thumb"
+                @click="selectGenImage(rec)"
+                @error="markBroken(rec.id)"
+              />
+              <div v-else class="gen-thumb gen-placeholder">已失效</div>
+            </template>
           </div>
         </div>
 
@@ -493,7 +541,14 @@ const onEditTab = () => {
           <div v-else-if="editHistoryList.length === 0" class="empty">暂无修图记录</div>
           <div v-else class="gen-history-grid">
             <div v-for="rec in editHistoryList" :key="rec.id" class="history-item">
-              <img :src="'/api/storage/' + (rec.content?.storageKey || '')" alt="历史" class="history-thumb" @click="openHistoryImage(rec.content?.storageKey || '')" />
+              <img
+                v-if="!brokenImages.has(rec.id) && storageUrl(rec.content?.storageKey)"
+                :src="storageUrl(rec.content?.storageKey)"
+                alt="历史" class="history-thumb"
+                @click="openEditRecord(rec)"
+                @error="markBroken(rec.id)"
+              />
+              <div v-else class="history-thumb history-placeholder">图片已失效</div>
               <div class="history-actions-row">
                 <span class="history-date">{{ new Date(rec.createdAt).toLocaleString('zh-CN') }}</span>
                 <button class="del-btn" @click.stop="deleteHistoryItem(rec.id)">×</button>
@@ -779,6 +834,7 @@ const onEditTab = () => {
 .history-item {
   display: flex; flex-direction: column; gap: 4px;
   .history-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; background: rgba(255,255,255,.05); cursor: pointer; }
+  .history-placeholder { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 1; border-radius: 6px; background: rgba(255,255,255,.05); color: rgba(255,255,255,.35); font-size: 11px; }
   .history-actions-row { display: flex; align-items: center; justify-content: space-between; }
   .history-date { font-size: 10px; color: rgba(255,255,255,.4); }
   .history-prompt { font-size: 11px; color: rgba(255,255,255,.6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -793,6 +849,7 @@ const onEditTab = () => {
     &:hover { border-color: #4a90d9; }
     &.selected { border-color: #4caf50; }
   }
+  .gen-placeholder { display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.05); color: rgba(255,255,255,.35); font-size: 11px; }
 }
 
 // Chat section

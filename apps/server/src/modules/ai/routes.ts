@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import prisma from '../../lib/prisma.js'
 import { authMiddleware, type AuthRequest } from '../../middlewares/auth.js'
-import { generateImage, editImage, chatCompletion, isAiImageConfigured, type ChatMessage } from '../../lib/ai.js'
+import { generateImage, editImage, chatCompletion, isAiImageConfigured, type ChatMessage, type GeneratedImage } from '../../lib/ai.js'
 import { consumeImage } from '../../lib/consumption.js'
 import { putObject } from '../../lib/storage.js'
 import { v4 as uuidv4 } from 'uuid'
@@ -10,6 +10,21 @@ const router: Router = Router()
 
 // 去掉 data URL 前缀，拿到纯 base64
 const stripDataUrl = (s: string) => String(s).replace(/^data:image\/\w+;base64,/, '')
+
+// 把生成结果统一转为可存储的 PNG Buffer：
+// 有 b64 直接解码；部分代理只返回 url（无 b64_json），此时先下载再落盘，
+// 避免把空 Buffer 写入存储导致历史缩略图/结果图全部无法显示。
+async function toStorageBuffer(result: GeneratedImage): Promise<Buffer> {
+  if (result.b64) return Buffer.from(stripDataUrl(result.b64), 'base64')
+  if (result.url) {
+    const resp = await fetch(result.url)
+    if (!resp.ok) throw new Error(`下载生成图片失败: HTTP ${resp.status}`)
+    const buf = Buffer.from(await resp.arrayBuffer())
+    if (!buf.length) throw new Error('生成图片内容为空')
+    return buf
+  }
+  throw new Error('生成结果不含图片数据')
+}
 
 // 文生图：{ prompt, size?, n? } → { image, key }
 router.post('/image', authMiddleware, async (req: AuthRequest, res) => {
@@ -27,8 +42,7 @@ router.post('/image', authMiddleware, async (req: AuthRequest, res) => {
 
     // 保存到 MinIO
     const key = `ai-gen/${req.userId!}/${uuidv4()}.png`
-    const b64 = result.b64 || stripDataUrl(String(image).split(',')[1] || '')
-    const buf = Buffer.from(b64, 'base64')
+    const buf = await toStorageBuffer(result)
     await putObject(key, buf, 'image/png')
 
     // 保存记录
@@ -67,8 +81,7 @@ router.post('/edit', authMiddleware, async (req: AuthRequest, res) => {
 
     // 保存到 MinIO
     const key = `ai-edit/${req.userId!}/${uuidv4()}.png`
-    const b64 = result.b64 || stripDataUrl(String(out).split(',')[1] || '')
-    const buf = Buffer.from(b64, 'base64')
+    const buf = await toStorageBuffer(result)
     await putObject(key, buf, 'image/png')
 
     // 保存记录
