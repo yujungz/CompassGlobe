@@ -314,20 +314,25 @@ function reset() {
       <!-- Detail Modal -->
       <div v-if="showDetail && detailRecord" class="modal-overlay" @click.self="showDetail = false">
         <div class="modal-card">
-          <h3>分析详情</h3>
-          <div class="detail-images" v-if="detailRecord.images.length">
-            <img
-              v-for="(img, i) in detailRecord.images"
-              :key="i"
-              :src="'/api/storage/' + img"
-              alt="图片"
-              class="detail-img"
-            />
+          <div class="modal-head">
+            <h3>分析详情</h3>
+            <button class="modal-close" aria-label="关闭" @click="showDetail = false">×</button>
           </div>
-          <div class="detail-text" v-if="detailRecord.result?.analysis">
-            {{ detailRecord.result.analysis }}
+          <div class="modal-body">
+            <div class="detail-images" v-if="detailRecord.images.length">
+              <img
+                v-for="(img, i) in detailRecord.images"
+                :key="i"
+                :src="'/api/storage/' + img"
+                alt="图片"
+                class="detail-img"
+              />
+            </div>
+            <div class="detail-text" v-if="detailRecord.result?.analysis">
+              {{ detailRecord.result.analysis }}
+            </div>
+            <button class="btn-secondary" @click="showDetail = false">关闭</button>
           </div>
-          <button class="btn-secondary" @click="showDetail = false">关闭</button>
         </div>
       </div>
     </div>
@@ -457,8 +462,23 @@ function reset() {
 
 .modal-card {
   background: #1e2a3a; border-radius: 12px; padding: 24px;
-  width: 90%; max-width: 640px; max-height: 80vh; overflow-y: auto;
-  h3 { margin: 0 0 16px; }
+  width: 90%; max-width: 640px; max-height: 80vh;
+  display: flex; flex-direction: column;
+
+  .modal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px; flex-shrink: 0;
+    h3 { margin: 0; }
+  }
+
+  .modal-close {
+    background: none; border: none; color: rgba(255,255,255,.5);
+    font-size: 24px; line-height: 1; cursor: pointer; padding: 0 6px;
+    border-radius: 6px;
+    &:hover { color: #fff; background: rgba(255,255,255,.1); }
+  }
+
+  .modal-body { overflow-y: auto; }
 }
 
 .detail-images {
