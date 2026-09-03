@@ -39,6 +39,27 @@ const askBtnRef = ref<HTMLElement | null>(null)
 // History
 const history = ref<DivinationRecordItem[]>([])
 
+// 历史记录详情视图
+const viewingRecord = ref<DivinationRecordItem | null>(null)
+const historyCard = ref<HTMLElement | null>(null)
+
+function openDetail(record: DivinationRecordItem) {
+  viewingRecord.value = record
+  window.scrollTo({ top: 0 })
+}
+
+function closeDetail() {
+  viewingRecord.value = null
+  // 返回后定位回历史记录区域
+  nextTick(() => historyCard.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
+
+// 未解卦的记录：载入主界面继续 AI 解卦（沿用原读取流程）
+async function continueAsk(record: DivinationRecordItem) {
+  viewingRecord.value = null
+  await loadHistoryRecord(record)
+}
+
 onMounted(async () => {
   try {
     const profile = await authApi.getCurrentUser()
@@ -248,6 +269,65 @@ function changingLineClass(index: number): string {
   <div class="divination-page">
     <NavBar />
     <div class="divination-wrap">
+      <!-- 记录详情视图 -->
+      <template v-if="viewingRecord">
+        <button class="back-btn" @click="closeDetail">← 返回</button>
+
+        <div class="divination-header">
+          <h1 class="title">记录详情</h1>
+          <p class="subtitle">{{ viewingRecord.question }}</p>
+        </div>
+
+        <section class="card">
+          <h3 class="card-title">基本信息</h3>
+          <div class="detail-meta">
+            <span>姓名：{{ viewingRecord.name }}</span>
+            <span>时间：{{ new Date(viewingRecord.createdAt).toLocaleString('zh-CN') }}</span>
+            <span class="detail-question">所问之事：{{ viewingRecord.question }}</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3 class="card-title">卦象排盘</h3>
+          <div class="hexagram-display">
+            <div class="hexagram-main">
+              <span class="hexagram-symbol">{{ viewingRecord.hexagram.originalSymbol }}</span>
+              <div>
+                <h3>本卦：{{ viewingRecord.hexagram.originalName }}</h3>
+                <p class="gua-ci">"{{ viewingRecord.hexagram.originalGuaCi }}"</p>
+              </div>
+            </div>
+            <div v-if="viewingRecord.hexagram.changingLines.length > 0" class="changing-info">
+              <p><strong>变爻：</strong>第{{ viewingRecord.hexagram.changingLines.map(l => `${l}爻`).join('、') }}</p>
+              <div v-for="(yao, i) in viewingRecord.hexagram.yaoCi" :key="i" class="yao-ci">
+                <p>{{ yao }}</p>
+              </div>
+            </div>
+            <div v-else class="changing-info">
+              <p><strong>静卦</strong> — 无变爻，以本卦卦辞为断</p>
+            </div>
+            <div v-if="viewingRecord.hexagram.changedName" class="hexagram-changed">
+              <span class="hexagram-symbol">{{ viewingRecord.hexagram.changedSymbol }}</span>
+              <strong>变卦：{{ viewingRecord.hexagram.changedName }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="viewingRecord.result?.analysis" class="card">
+          <h3 class="card-title">解卦结果</h3>
+          <div class="analysis-text">{{ viewingRecord.result.analysis }}</div>
+          <div class="result-actions">
+            <button class="btn-secondary" @click="downloadPdf(viewingRecord.id)">📥 下载 PDF</button>
+          </div>
+        </section>
+        <section v-else class="card">
+          <div class="empty">该记录尚未进行 AI 解卦</div>
+          <button class="btn-primary" @click="continueAsk(viewingRecord)">🔮 继续解卦</button>
+        </section>
+      </template>
+
+      <!-- 常规视图 -->
+      <template v-else>
       <div class="divination-header">
         <h1 class="title">八卦问事</h1>
         <p class="subtitle">摒除杂念，集中注意力默想所问之事，然后起卦</p>
@@ -354,7 +434,7 @@ function changingLineClass(index: number): string {
       </section>
 
       <!-- History -->
-      <section class="card history-card">
+      <section ref="historyCard" class="card history-card">
         <h2>历史记录</h2>
         <div v-if="history.length === 0" class="empty">暂无八卦问事记录</div>
         <div v-else class="history-list">
@@ -365,13 +445,14 @@ function changingLineClass(index: number): string {
               <span class="history-date">{{ new Date(record.createdAt).toLocaleString('zh-CN') }}</span>
             </div>
             <div class="history-actions">
-              <button class="action-btn" @click="loadHistoryRecord(record)">读取</button>
+              <button class="action-btn" @click="openDetail(record)">读取</button>
               <button v-if="record.result?.analysis" class="action-btn" @click="downloadPdf(record.id)">PDF</button>
               <button class="action-btn danger" @click="deleteRecord(record)">删除</button>
             </div>
           </div>
         </div>
       </section>
+      </template>
     </div>
   </div>
 </template>
@@ -385,6 +466,27 @@ function changingLineClass(index: number): string {
 .divination-wrap {
   max-width: 720px; margin: 0 auto; padding: 24px 16px 48px;
 }
+.back-btn {
+  display: block;
+  margin: 0 0 16px;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  &:hover { border-color: #4a90d9; color: #4a90d9; }
+}
+.card-title {
+  font-size: 15px; font-weight: 600; margin: 0 0 12px; color: rgba(255,255,255,.85);
+}
+.detail-meta {
+  display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 16px;
+  font-size: 13px; color: rgba(255,255,255,.65);
+  .detail-question { display: block; width: 100%; white-space: pre-wrap; line-height: 1.6; }
+}
 .divination-header { text-align: center; margin-bottom: 24px;
   .title { font-size: 26px; margin: 0 0 8px; }
   .subtitle { color: rgba(255,255,255,.55); font-size: 13px; margin: 0 0 8px; }
@@ -396,10 +498,11 @@ function changingLineClass(index: number): string {
 }
 .hint { color: rgba(255,255,255,.4); font-size: 13px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.form-item { display: flex; flex-direction: column; gap: 4px;
+.form-item { display: flex; flex-direction: column; gap: 4px; min-width: 0;
   label { font-size: 12px; color: rgba(255,255,255,.5); }
 }
 .input {
+  width: 100%; min-width: 0; box-sizing: border-box;
   padding: 10px 12px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
   border-radius: 6px; color: #fff; font-size: 14px;
   &:focus { outline: none; border-color: #4a90d9; }
@@ -485,4 +588,20 @@ function changingLineClass(index: number): string {
   }
 }
 .empty { text-align: center; padding: 24px; color: rgba(255,255,255,.4); font-size: 14px; }
+
+// 竖屏窄屏：记录行上下布局，信息纵向排列，操作按钮完整可见
+@media (max-width: 768px) {
+  .history-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    .history-info {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+    .history-q { max-width: 100%; }
+    .history-actions { align-self: flex-end; }
+  }
+}
 </style>
