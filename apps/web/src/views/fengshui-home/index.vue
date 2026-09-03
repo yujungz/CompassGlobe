@@ -271,7 +271,7 @@ function reset() {
         </div>
 
         <button class="btn-primary" :disabled="analyzing || selectedFiles.length === 0" @click="handleAnalyze">
-          {{ analyzing ? '分析中…（约20-60秒）' : '开始风水分析' }}
+          {{ analyzing ? '分析中…（约20-60秒）' : '开始分析' }}
         </button>
 
         <p v-if="error" class="error-msg">{{ error }}</p>
@@ -297,15 +297,16 @@ function reset() {
             v-for="record in history"
             :key="record.id"
             class="history-item"
+            role="button"
+            @click="openDetail(record)"
           >
             <div class="history-info">
               <span class="history-date">{{ new Date(record.createdAt).toLocaleString('zh-CN') }}</span>
               <span class="history-img-count">{{ record.images.length }} 张图片</span>
             </div>
             <div class="history-actions">
-              <button class="action-btn" @click="downloadPDF(record.id)">PDF</button>
-              <button class="action-btn" @click="openDetail(record)">查看</button>
-              <button class="action-btn danger" @click="deleteRecord(record)">删除</button>
+              <button class="action-btn" @click.stop="downloadPDF(record.id)">PDF</button>
+              <button class="action-btn danger" @click.stop="deleteRecord(record)">删除</button>
             </div>
           </div>
         </div>
@@ -443,6 +444,8 @@ function reset() {
 .history-item {
   display: flex; justify-content: space-between; align-items: center;
   padding: 12px; background: rgba(0,0,0,.15); border-radius: 8px;
+  cursor: pointer; transition: background .2s;
+  &:hover { background: rgba(255,255,255,.08); }
   .history-info { display: flex; gap: 12px; font-size: 13px; color: rgba(255,255,255,.6); }
   .history-actions { display: flex; gap: 8px; }
   .action-btn {
@@ -450,6 +453,16 @@ function reset() {
     padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer;
     &:hover { border-color: #4a90d9; color: #4a90d9; }
     &.danger:hover { border-color: #e74c3c; color: #e74c3c; }
+  }
+}
+
+// 竖屏窄屏：记录行上下布局，避免日期/张数把操作按钮挤出屏幕
+@media (max-width: 768px) {
+  .history-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    .history-actions { align-self: flex-end; }
   }
 }
 
