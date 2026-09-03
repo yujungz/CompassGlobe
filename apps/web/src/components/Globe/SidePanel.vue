@@ -107,6 +107,8 @@ const handleAnalyze = () => {
         <div class="time-display">{{ currentTime }}</div>
       </div>
 
+      <button class="analyze-btn" @click="handleAnalyze">风水分析</button>
+
       <!-- Tab 切换 -->
       <div v-if="formattedLocation" class="panel-tabs">
         <button :class="['tab-btn', { active: activeTab === 'info' }]" @click="activeTab = 'info'">信息</button>
@@ -212,7 +214,6 @@ const handleAnalyze = () => {
         </div>
       </template>
 
-        <button class="analyze-btn" @click="handleAnalyze">风水分析</button>
       </div>
     </div>
 </template>
@@ -258,8 +259,7 @@ const handleAnalyze = () => {
     }
 
     .analyze-btn {
-      flex-shrink: 0;
-      margin: 8px 16px 16px;
+      margin: 8px 0 16px;
     }
   }
 }
@@ -356,6 +356,7 @@ const handleAnalyze = () => {
 
 .analyze-btn {
   width: 100%;
+  margin: 4px 0 16px;
   padding: 12px;
   background: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
   border: none;
