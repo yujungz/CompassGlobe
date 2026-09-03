@@ -62,6 +62,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'AI 创作', requiresAuth: true },
   },
   {
+    path: '/about',
+    name: 'About',
+    component: () => import('@/views/about/index.vue'),
+    meta: { title: '关于我们' },
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/error/404.vue'),

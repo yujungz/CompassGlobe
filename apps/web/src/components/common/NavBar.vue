@@ -27,13 +27,13 @@ const toggleMenu = () => {
 function showAbout() {
   helpOpen.value = false
   menuVisible.value = false
-  alert('公司：广州市双鱼文化科技有限公司\n联系方式：yujun_gz@sina.com')
+  router.push('/about')
 }
 
 function showUsage() {
   helpOpen.value = false
   menuVisible.value = false
-  alert('使用说明\n\n1. 点击地球选择地点，查看位置、天气信息\n2. 使用「地理分析」进行风水分析\n3. 上传室内照片进行「居家风水」分析\n4. 输入出生信息查看「流年大运」\n5. 默想问题后「起卦」进行八卦问事\n6. AI 创作支持文生图、修图和对话')
+  alert('温馨提示\n\n本应用仅供娱乐休闲，不构成任何专业建议，请理性看待内容。\n\n使用说明\n\n1. 点击地球选择地点，查看位置、天气信息\n2. 使用「地理分析」进行风水分析\n3. 上传室内照片进行「居家风水」分析\n4. 输入出生信息查看「流年大运」\n5. 默想问题后「起卦」进行八卦问事\n6. AI 创作支持文生图、修图和对话')
 }
 </script>
 
