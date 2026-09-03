@@ -41,17 +41,19 @@ const history = ref<DivinationRecordItem[]>([])
 
 // 历史记录详情视图
 const viewingRecord = ref<DivinationRecordItem | null>(null)
-const historyCard = ref<HTMLElement | null>(null)
+// 打开详情前的页面滚动位置，返回时恢复
+let savedScrollY = 0
 
 function openDetail(record: DivinationRecordItem) {
+  savedScrollY = window.scrollY
   viewingRecord.value = record
   window.scrollTo({ top: 0 })
 }
 
 function closeDetail() {
   viewingRecord.value = null
-  // 返回后定位回历史记录区域
-  nextTick(() => historyCard.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  // 内容重新渲染后恢复到进入详情前的位置
+  nextTick(() => window.scrollTo({ top: savedScrollY }))
 }
 
 // 未解卦的记录：载入主界面继续 AI 解卦（沿用原读取流程）
@@ -434,7 +436,7 @@ function changingLineClass(index: number): string {
       </section>
 
       <!-- History -->
-      <section ref="historyCard" class="card history-card">
+      <section class="card history-card">
         <h2>历史记录</h2>
         <div v-if="history.length === 0" class="empty">暂无八卦问事记录</div>
         <div v-else class="history-list">
