@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 defineOptions({ name: 'Analysis' })
 import { useRoute } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
@@ -71,13 +71,20 @@ const handleAnalyze = async () => {
   }
 }
 
+// 记录详情视图态：非空时整页切换为详情界面
+const viewingRecord = ref<AnalysisRecord | null>(null)
+const historyCard = ref<HTMLElement | null>(null)
+
 // 从结果文本提取综合评分（0-100）
-const score = computed(() => {
-  const content = result.value?.result?.content || ''
+function extractScore(content?: string): number | null {
+  if (!content) return null
   const m = content.match(/综合评分[^\d]*?(\d{1,3})/)
   const n = m ? parseInt(m[1]) : null
   return n != null && n >= 0 && n <= 100 ? n : null
-})
+}
+
+const score = computed(() => extractScore(result.value?.result?.content || ''))
+const detailScore = computed(() => extractScore(viewingRecord.value?.result?.content || ''))
 
 // 历史记录
 const history = ref<AnalysisRecord[]>([])
@@ -107,9 +114,15 @@ async function deleteRecord(id: string) {
   } catch { alert('删除失败') }
 }
 
-async function viewRecord(record: AnalysisRecord) {
-  result.value = record
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+function openDetail(record: AnalysisRecord) {
+  viewingRecord.value = record
+  window.scrollTo({ top: 0 })
+}
+
+function closeDetail() {
+  viewingRecord.value = null
+  // 返回后定位回历史记录区域，避免回到页面顶部
+  nextTick(() => historyCard.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
 }
 
 function formatDate(d: string) { return new Date(d).toLocaleString('zh-CN') }
@@ -119,6 +132,44 @@ function formatDate(d: string) { return new Date(d).toLocaleString('zh-CN') }
   <div class="analysis-page">
     <NavBar />
     <div class="analysis-wrap">
+      <!-- 记录详情视图 -->
+      <template v-if="viewingRecord">
+        <button class="back-btn" @click="closeDetail">← 返回</button>
+
+        <div class="analysis-header">
+          <h1 class="title">记录详情</h1>
+          <p class="subtitle">{{ viewingRecord.address || `${viewingRecord.latitude.toFixed(4)}, ${viewingRecord.longitude.toFixed(4)}` }}</p>
+        </div>
+
+        <section class="card">
+          <h3 class="card-title">位置信息</h3>
+          <div class="info-grid">
+            <div class="info-item"><span class="label">经度</span><span class="value">{{ viewingRecord.longitude.toFixed(6) }}°</span></div>
+            <div class="info-item"><span class="label">纬度</span><span class="value">{{ viewingRecord.latitude.toFixed(6) }}°</span></div>
+            <div class="info-item"><span class="label">海拔</span><span class="value">{{ viewingRecord.altitude == null ? '—' : viewingRecord.altitude.toFixed(2) + ' m' }}</span></div>
+            <div class="info-item"><span class="label">八卦方位</span><span class="value">{{ getBaguaDirection(viewingRecord.longitude) }}</span></div>
+            <div class="info-item"><span class="label">分析时间</span><span class="value">{{ formatDate(viewingRecord.createdAt) }}</span></div>
+            <div class="info-item"><span class="label">生成时间</span><span class="value">{{ viewingRecord.result?.generatedAt ? formatDate(viewingRecord.result.generatedAt) : '—' }}</span></div>
+          </div>
+          <div v-if="viewingRecord.address" class="info-item info-item--full"><span class="label">地址</span><span class="value">{{ viewingRecord.address }}</span></div>
+          <div v-if="viewingRecord.weather" class="weather">
+            <span class="weather-main">{{ viewingRecord.weather.weather }} · {{ viewingRecord.weather.temperature }}°C</span>
+            <span class="weather-sub">湿度 {{ viewingRecord.weather.humidity }}% · {{ viewingRecord.weather.windDirection }} {{ viewingRecord.weather.windSpeed }} km/h</span>
+          </div>
+        </section>
+
+        <section v-if="viewingRecord.result?.content" class="card result">
+          <div class="result-head">
+            <h3 class="card-title">分析结果</h3>
+            <span v-if="detailScore != null" class="score">综合评分 {{ detailScore }}</span>
+          </div>
+          <div class="result-content">{{ viewingRecord.result.content }}</div>
+        </section>
+        <div v-else class="empty">该记录暂无分析结果</div>
+      </template>
+
+      <!-- 常规视图（分析 + 历史记录） -->
+      <template v-else>
       <div class="analysis-header">
         <h1 class="title">地理分析</h1>
         <p class="subtitle">基于位置、海拔、天气与八卦方位的 AI 风水分析</p>
@@ -163,23 +214,29 @@ function formatDate(d: string) { return new Date(d).toLocaleString('zh-CN') }
       </section>
 
       <!-- 历史记录 -->
-      <section class="card history-card">
+      <section ref="historyCard" class="card history-card">
         <h2>历史记录</h2>
         <div v-if="historyLoading" class="loading">加载中...</div>
         <div v-else-if="history.length === 0" class="empty">暂无地理分析记录</div>
         <div v-else class="history-list">
-          <div v-for="record in history" :key="record.id" class="history-item">
+          <div
+            v-for="record in history"
+            :key="record.id"
+            class="history-item"
+            role="button"
+            @click="openDetail(record)"
+          >
             <div class="history-info">
               <span class="history-addr">{{ record.address || `${record.latitude.toFixed(4)}, ${record.longitude.toFixed(4)}` }}</span>
-              <span class="history-date">{{ formatDate(record.createdAt as any) }}</span>
+              <span class="history-date">{{ formatDate(record.createdAt) }}</span>
             </div>
             <div class="history-actions">
-              <button class="action-btn" @click="viewRecord(record)">查看</button>
-              <button class="action-btn danger" @click="deleteRecord(record.id)">删除</button>
+              <button class="action-btn danger" @click.stop="deleteRecord(record.id)">删除</button>
             </div>
           </div>
         </div>
       </section>
+      </template>
     </div>
   </div>
 </template>
@@ -195,6 +252,24 @@ function formatDate(d: string) { return new Date(d).toLocaleString('zh-CN') }
   max-width: 720px;
   margin: 0 auto;
   padding: 24px 16px 48px;
+}
+
+.back-btn {
+  display: block;
+  margin: 0 0 16px;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #4a90d9;
+    color: #4a90d9;
+  }
 }
 
 .analysis-header {
@@ -358,6 +433,8 @@ function formatDate(d: string) { return new Date(d).toLocaleString('zh-CN') }
 .history-item {
   display: flex; justify-content: space-between; align-items: center;
   padding: 12px; background: rgba(0,0,0,.15); border-radius: 8px;
+  cursor: pointer; transition: background 0.2s;
+  &:hover { background: rgba(255,255,255,.08); }
   .history-info { display: flex; gap: 12px; font-size: 13px; align-items: center; }
   .history-addr { color: rgba(255,255,255,.7); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .history-date { color: rgba(255,255,255,.4); white-space: nowrap; }
@@ -374,6 +451,25 @@ function formatDate(d: string) { return new Date(d).toLocaleString('zh-CN') }
 @media (max-width: 768px) {
   .info-grid {
     grid-template-columns: 1fr;
+  }
+
+  // 竖屏窄屏：记录行改上下布局，避免地址/日期把操作按钮挤出屏幕
+  .history-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+
+    .history-info {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+    .history-addr {
+      max-width: 100%;
+    }
+    .history-actions {
+      justify-content: flex-end;
+    }
   }
 }
 </style>
