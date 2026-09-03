@@ -36,6 +36,24 @@ const error = ref('')
 const history = ref<FortuneRecordItem[]>([])
 const historyLoading = ref(false)
 
+// 详情弹窗
+const detailRecord = ref<FortuneRecordItem | null>(null)
+const showDetail = ref(false)
+
+const genderLabel = (g: string) => (g === 'female' ? '女' : '男')
+
+async function openDetail(record: FortuneRecordItem) {
+  try {
+    detailRecord.value = await fortuneApi.getDetail(record.id)
+    showDetail.value = true
+  } catch { /* ignore */ }
+}
+
+function closeDetail() {
+  showDetail.value = false
+  detailRecord.value = null
+}
+
 onMounted(async () => {
   // Pre-fill from user profile
   try {
@@ -136,6 +154,7 @@ async function deleteRecord(record: FortuneRecordItem) {
   try {
     await fortuneApi.delete(record.id)
     history.value = history.value.filter(h => h.id !== record.id)
+    if (detailRecord.value?.id === record.id) closeDetail()
   } catch { alert('删除失败') }
 }
 
@@ -292,19 +311,56 @@ function reset() {
         <div v-if="historyLoading" class="loading">加载中...</div>
         <div v-else-if="history.length === 0" class="empty">暂无流年大运分析记录</div>
         <div v-else class="history-list">
-          <div v-for="record in history" :key="record.id" class="history-item">
+          <div
+            v-for="record in history"
+            :key="record.id"
+            class="history-item"
+            role="button"
+            @click="openDetail(record)"
+          >
             <div class="history-info">
               <span>{{ record.name }}</span>
               <span>{{ record.predictYear }}年</span>
               <span class="history-date">{{ new Date(record.createdAt).toLocaleString('zh-CN') }}</span>
             </div>
             <div class="history-actions">
-              <button class="action-btn" @click="downloadPdf(record.id)">PDF</button>
-              <button class="action-btn danger" @click="deleteRecord(record)">删除</button>
+              <button class="action-btn" @click.stop="downloadPdf(record.id)">PDF</button>
+              <button class="action-btn danger" @click.stop="deleteRecord(record)">删除</button>
             </div>
           </div>
         </div>
       </section>
+
+      <!-- Detail Modal -->
+      <div v-if="showDetail && detailRecord" class="modal-overlay" @click.self="closeDetail">
+        <div class="modal-card">
+          <div class="modal-head">
+            <h3>记录详情</h3>
+            <button class="modal-close" aria-label="关闭" @click="closeDetail">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="detail-meta">
+              <span>姓名：{{ detailRecord.name }}</span>
+              <span>性别：{{ genderLabel(detailRecord.gender) }}</span>
+              <span>预测年份：{{ detailRecord.predictYear }}年</span>
+              <span v-if="detailRecord.zodiac">生肖：{{ detailRecord.zodiac }}</span>
+              <span>时间：{{ new Date(detailRecord.createdAt).toLocaleString('zh-CN') }}</span>
+            </div>
+            <div v-if="detailRecord.baZi" class="detail-bazi">
+              <div class="bazi-pillars">
+                <div class="pillar"><span class="pillar-label">年柱</span><span class="pillar-val">{{ detailRecord.baZi.yearPillar }}</span></div>
+                <div class="pillar"><span class="pillar-label">月柱</span><span class="pillar-val">{{ detailRecord.baZi.monthPillar }}</span></div>
+                <div class="pillar"><span class="pillar-label">日柱</span><span class="pillar-val">{{ detailRecord.baZi.dayPillar }}</span></div>
+                <div class="pillar"><span class="pillar-label">时柱</span><span class="pillar-val">{{ detailRecord.baZi.timePillar }}</span></div>
+              </div>
+            </div>
+            <div class="detail-text" v-if="detailRecord.result?.analysis">
+              {{ detailRecord.result.analysis }}
+            </div>
+            <div v-else class="empty">该记录暂无分析结果</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -330,12 +386,14 @@ function reset() {
 }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .form-row-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0; }
-.form-item { display: flex; flex-direction: column; gap: 4px;
+.form-item { display: flex; flex-direction: column; gap: 4px; min-width: 0;
   label { font-size: 12px; color: rgba(255,255,255,.5); }
 }
 .input {
+  width: 100%; min-width: 0;
   padding: 10px 12px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
   border-radius: 6px; color: #fff; font-size: 14px;
+  box-sizing: border-box;
   &:focus { outline: none; border-color: #4a90d9; }
 }
 .textarea { resize: vertical; font-family: inherit; }
@@ -377,6 +435,8 @@ function reset() {
 .history-item {
   display: flex; justify-content: space-between; align-items: center;
   padding: 12px; background: rgba(0,0,0,.15); border-radius: 8px;
+  cursor: pointer; transition: background .2s;
+  &:hover { background: rgba(255,255,255,.08); }
   .history-info { display: flex; gap: 12px; font-size: 13px; color: rgba(255,255,255,.6); }
   .history-actions { display: flex; gap: 8px; }
   .action-btn {
@@ -387,4 +447,60 @@ function reset() {
   }
 }
 .loading, .empty { text-align: center; padding: 24px; color: rgba(255,255,255,.4); font-size: 14px; }
+
+// 竖屏窄屏：记录行上下布局，避免信息把操作按钮挤出屏幕
+@media (max-width: 768px) {
+  .history-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    .history-actions { align-self: flex-end; }
+  }
+}
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+
+.modal-card {
+  background: #1e2a3a; border-radius: 12px; padding: 24px;
+  width: 90%; max-width: 640px; max-height: 80vh;
+  display: flex; flex-direction: column;
+
+  .modal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px; flex-shrink: 0;
+    h3 { margin: 0; }
+  }
+
+  .modal-close {
+    background: none; border: none; color: rgba(255,255,255,.5);
+    font-size: 24px; line-height: 1; cursor: pointer; padding: 0 6px;
+    border-radius: 6px;
+    &:hover { color: #fff; background: rgba(255,255,255,.1); }
+  }
+
+  .modal-body { overflow-y: auto; }
+}
+
+.detail-meta {
+  display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 16px;
+  font-size: 13px; color: rgba(255,255,255,.65);
+}
+
+.detail-bazi {
+  margin-bottom: 16px;
+  .bazi-pillars { display: flex; gap: 8px; }
+  .pillar {
+    flex: 1; text-align: center; background: rgba(74,144,217,.15); border-radius: 6px; padding: 8px 4px;
+    .pillar-label { display: block; font-size: 11px; color: rgba(255,255,255,.5); margin-bottom: 4px; }
+    .pillar-val { font-size: 15px; font-weight: 600; }
+  }
+}
+
+.detail-text {
+  white-space: pre-wrap; line-height: 1.8; font-size: 14px;
+  color: rgba(255,255,255,.85);
+}
 </style>
