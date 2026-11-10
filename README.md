@@ -186,6 +186,25 @@ docker exec compass-server npx prisma studio        # 管理界面
 - **和风天气私钥**：生产部署前，把 Ed25519 私钥放到 `secrets/qweather-ed25519.pem`（该目录已 gitignore，不入库）。生产 `docker-compose.yml` 会把它只读挂载进 `compass-server` 容器的 `/run/secrets/qweather_ed25519`，`QWEATHER_PRIVATE_KEY_PATH` 已固定指向该容器路径。本地开发则用 `apps/server/.env` 的 `QWEATHER_PRIVATE_KEY_PATH` 指向宿主机路径。切勿把私钥打进镜像或提交 git。
 - **天地图防盗刷**：`TDT_KEY` 会下发到前端浏览器，上线前请在天地图控制台为该 Key 配置**域名白名单**。
 - **邮箱验证码**：依赖 `SMTP_*`；短信验证码为模拟实现。
+- **Docker Hub 拉取受限（国内/港线服务器）**：直连 `registry-1.docker.io` 可能被拒（`pull access denied`）或超时。在 `/etc/docker/daemon.json` 配置 `registry-mirrors` 加速站后 `systemctl restart docker`。两个坑：① 若原配置含 `data-root`（数据目录指定到数据盘），修改时务必保留，整文件覆盖会让 Docker 改读默认 `/var/lib/docker`，表现为「容器全部消失」（数据仍在旧目录，恢复 data-root 即可）；② Docker 23+ 已移除 `graph` 等老配置项，写进 daemon.json 会导致 dockerd 直接启动失败，报 `directives don't match any configuration option`。
+- **MinIO 已停用（当前用本地文件存储）**：生产 `docker-compose.yml` 中 minio 服务已整体注释——部分服务器拉取 `minio/minio` 镜像受限，且 `apps/server/src/lib/storage.ts` 在 MinIO 不可用时自动回退到本地文件系统（`storage_data` 卷持久化），上传/读取功能不受影响。server 日志出现 `MinIO unavailable, using local storage` 属正常回退。将来启用 MinIO：取消三处注释即可（minio 服务块、server `depends_on` 的 minio 条目、底部 `minio_data` 卷声明）。
+- **后台管理员初始化（首登 401）**：全新部署的数据库 `Admin` 表为空，后台 `/back` 登录必返回 401「用户名或密码错误」。开发环境可直接 `docker exec compass-server npm run db:seed`；**生产镜像未安装 `tsx`，`prisma db seed` 跑不了**，用下面命令初始化超管（默认 `admin / admin123`，**登录后立即改密码**，该默认密码公开在仓库中）：
+
+  ```bash
+  docker exec -i compass-server node --input-type=commonjs <<'EOF'
+  const { PrismaClient } = require('@prisma/client')
+  const bcrypt = require('bcryptjs')
+  const prisma = new PrismaClient()
+  ;(async () => {
+    const exists = await prisma.admin.findUnique({ where: { username: 'admin' } })
+    if (exists) { console.log('admin 已存在，跳过'); return }
+    await prisma.admin.create({
+      data: { username: 'admin', password: bcrypt.hashSync('admin123', 10), nickname: '超级管理员', role: 'super', status: 1 }
+    })
+    console.log('创建成功: admin / admin123')
+  })().finally(() => prisma.$disconnect())
+  EOF
+  ```
 
 ## HTTPS 配置（SSL 证书）
 
