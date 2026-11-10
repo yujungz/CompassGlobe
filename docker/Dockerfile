@@ -11,7 +11,7 @@ COPY package.json pnpm-workspace.yaml ./
 COPY apps/server/package.json ./apps/server/
 COPY packages/shared/package.json ./packages/shared/
 
-RUN npm install -g pnpm && pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+RUN npm install -g pnpm@9 && pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 
 # ========================================
 # 后端构建
@@ -45,7 +45,7 @@ COPY packages/shared/package.json ./packages/shared/
 
 # hoisted 模式：扁平 node_modules，确保 cesium 等包的目录结构完整可访问
 RUN echo 'node-linker=hoisted' > .npmrc \
- && npm install -g pnpm \
+ && npm install -g pnpm@9 \
  && pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 
 COPY apps/web ./apps/web
@@ -65,7 +65,7 @@ COPY package.json pnpm-workspace.yaml ./
 COPY apps/admin/package.json ./apps/admin/
 COPY packages/shared/package.json ./packages/shared/
 
-RUN npm install -g pnpm && pnpm install --frozen-lockfile 2>/dev/null || pnpm install
+RUN npm install -g pnpm@9 && pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 
 COPY apps/admin ./apps/admin
 COPY packages/shared ./packages/shared
